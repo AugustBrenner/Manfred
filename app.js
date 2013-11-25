@@ -18,6 +18,9 @@ https://github.com/njoubert
 
 var GroupMe = require('groupme');
 var API = require('groupme').Stateless;
+var mongo = require('mongodb');
+var monk = require('monk');
+var db = monk('localhost:27017/Manfred');
 
 var BOT_LISTENS_FOR = "@BOT";
 
@@ -140,7 +143,7 @@ if (process.argv.length == 3) {
     // This waits for messages coming in from the IncomingStream
     // If the message contains @BOT, we parrot the message back.
     incoming.on('message', function(msg) {
-        console.log("[IncomingStream 'message'] Message Received");
+        console.log("[IncomingStream 'message'] Message Received\n" + msg["data"]["subject"]["text"]);
 
         if (msg["data"] 
             && msg["data"]["subject"] 
