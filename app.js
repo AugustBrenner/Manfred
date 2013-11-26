@@ -48,34 +48,34 @@ if (process.argv.length == 3) {
     
     // Step 1: Only an access token, we request the user id
 
-    API.Users.me(ACCESS_TOKEN, function(err,ret) {
-      if (!err) {
-        console.log("Your user id is", ret.id, "and your name is", ret.name);        
+    API.Users.me(ACCESS_TOKEN, function(error,response) {
+      if (!error) {
+        console.log("Your user id is", response.id, "and your name is", response.name);        
       } else {
-        console.log("ERROR!", err)
+        console.log("ERROR!", error)
       }
     });  
 
-    API.Bots.index(ACCESS_TOKEN, function(err,ret) {
-      if (!err) {
+    API.Bots.index(ACCESS_TOKEN, function(error,response) {
+      if (!error) {
         console.log("Your bots are:")
-        console.log(ret);
+        console.log(response);
       } else {
-        console.log("ERROR!", err)
+        console.log("ERROR!", error)
       }
     });
 
-    API.Groups.index(ACCESS_TOKEN, function(err,ret) {
-      if (!err) {
+    API.Groups.index(ACCESS_TOKEN, function(error,response) {
+      if (!error) {
         var names = [];
-        for (var i = 0; i < ret.length; i++) {
-          names.push({"name":ret[i].name, "id":ret[i].id});
+        for (var i = 0; i < response.length; i++) {
+          names.push({"name":response[i].name, "id":response[i].id});
         }
         console.log("Your groups are:")
         console.log(names); 
-      } else {
-        console.log("ERROR!", err)
-      }
+        } else {
+        console.log("ERROR!", error)
+        }
     });
 
 } else if (process.argv.length == 6) {
@@ -86,9 +86,9 @@ if (process.argv.length == 3) {
     var GROUP_ID = process.argv[4];
     var BOT_NAME = process.argv[5];
 
-    api.Bots.create(ACCESS_TOKEN, BOT_NAME, GROUP_ID, {}, function(err,ret) {
-        if (!err) {
-            console.log(ret);
+    API.Bots.create(ACCESS_TOKEN, BOT_NAME, GROUP_ID, {}, function(error,response) {
+        if (!error) {
+            console.log(response);
         } else {
             console.log("Error creating bot!")
         }
@@ -100,6 +100,48 @@ if (process.argv.length == 3) {
 
     var USER_ID  = process.argv[3];
     var BOT_NAME = process.argv[4];
+
+
+    /************************************************************************
+     * Retrieve all prior messages not stored in the database
+     ***********************************************************************/
+
+    var GROUP_ID = '6391102';
+    /*messageCollection = db.get(GROUP_ID);
+    var latestMessage = messageCollection.findOne(
+    {},
+    {},
+    function(error, response){
+        if(!error){ 
+            if(!response)
+            {
+                API.Messages.index
+            }       
+        } else {
+        console.log("ERROR!", error)
+        }
+    });
+*/
+    var GetMessages = function(){
+        this.messages = [];
+        this.beforeID = '';
+        this.afterID = '';
+    };
+
+    GetMessages.prototype.before = function($groupID){
+        API.Messages.index(
+            ACCESS_TOKEN,
+            GROUP_ID,
+            null,
+            function(error,response) {
+                //console.log(error);
+                console.log(response);
+            }
+        );
+    };
+
+    var getMessages = new GetMessages;
+    getMessages.before(GROUP_ID);
 
     /************************************************************************
      * Set up the message-based IncomingStream and the HTTP push
@@ -126,12 +168,11 @@ if (process.argv.length == 3) {
     incoming.on('connected', function() {
         console.log("[IncomingStream 'connected']");
 
-        API.Bots.index(ACCESS_TOKEN, function(err,ret) {
-            if (!err) {
-                var botdeets;
-                for (var i = 0; i < ret.length; i++) {
-                    if (ret[i].name == BOT_NAME) {
-                        bot_id = ret[i].bot_id;
+        API.Bots.index(ACCESS_TOKEN, function(error,response) {
+            if (!error) {
+                for (var i = 0; i < response.length; i++) {
+                    if (response[i].name == BOT_NAME) {
+                        bot_id = response[i].bot_id;
                     }
                 }
                 console.log("[API.Bots.index return] Firing up bot!", bot_id);
@@ -155,8 +196,8 @@ if (process.argv.length == 3) {
                     bot_id, // Identify the bot that is sending the message
                     "BOT's got " + msg["data"]["subject"]["name"]+ ":" + msg["data"]["subject"]["text"].replace(BOT_LISTENS_FOR, ""), // Construct the message
                     {}, // No pictures related to this post
-                    function(err,res) {
-                        if (err) {
+                    function(error,response) {
+                        if (error) {
                             console.log("[API.Bots.post] Reply Message Error!");
                         } else {
                             console.log("[API.Bots.post] Reply Message Sent!");
