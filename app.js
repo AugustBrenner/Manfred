@@ -122,26 +122,60 @@ if (process.argv.length == 3) {
         }
     });
 */
-    var GetMessages = function(){
-        this.messages = [];
-        this.beforeID = '';
-        this.afterID = '';
-    };
 
-    GetMessages.prototype.before = function($groupID){
+    var GetMessages = function(groupID){
+        this.groupID = groupID
+    }
+
+    GetMessages.prototype.before = function(beforeID){
+        var self = this;
         API.Messages.index(
             ACCESS_TOKEN,
-            GROUP_ID,
-            null,
+            this.groupID,
+            {before_id: beforeID},
             function(error,response) {
-                //console.log(error);
-                console.log(response);
-            }
-        );
-    };
+                if (!error) {
+                    self.responseHandler(response);  
+                } else  {
+                    console.log(error);
+                }
 
-    var getMessages = new GetMessages;
-    getMessages.before(GROUP_ID);
+            }
+        )
+    }
+
+    GetMessages.prototype.after = function(sinceID){
+        API.Messages.index(
+            ACCESS_TOKEN,
+            this.groupID,
+            {since_id: sinceID},
+            function(error,response) {
+                if (!error) {
+                    self.responseHandler(response);  
+                } else  {
+                    console.log(error);
+                }
+
+            }
+        )
+    }
+
+    GetMessages.prototype.responseHandler = function(response){
+        var self = this;
+        if(response.messages.length < 20){
+            console.log(response.messages);
+        }else{
+            console.log(response.messages);
+            self.before(response.messages[19].id);
+        }  
+    }
+
+    
+    
+
+    var getMessages = new GetMessages(GROUP_ID);
+    getMessages.before('138548622663293251');
+
 
     /************************************************************************
      * Set up the message-based IncomingStream and the HTTP push
