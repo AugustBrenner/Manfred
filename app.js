@@ -19,8 +19,8 @@ https://github.com/njoubert
 var GroupMe = require('groupme');
 var API = require('groupme').Stateless;
 var mongo = require('mongodb');
-var monk = require('monk');
-var db = monk('localhost:27017/Manfred');
+var mongoose = require('mongoose');
+
 
 var BOT_LISTENS_FOR = "@BOT";
 
@@ -106,56 +106,68 @@ if (process.argv.length == 3) {
      * Retrieve all prior messages not stored in the database
      ***********************************************************************/
 
-    var GROUP_ID = '6391102';
-    /*messageCollection = db.get(GROUP_ID);
-    var latestMessage = messageCollection.findOne(
-    {},
-    {},
-    function(error, response){
-        if(!error){ 
-            if(!response)
-            {
-                API.Messages.index
-            }       
-        } else {
-        console.log("ERROR!", error)
-        }
-    });
-*/
-
     var GetMessages = function(groupID){
-        this.groupID = groupID
+    this.groupID = groupID;
+
+    mongoose.connect('localhost:27017/Manfred');
+    var db = mongoose.connection;
+    db.on('error', console.error.bind(console, 'connection error:'));
+    
+    this.messageBounds = new mongoose.Schema({
+        bound           : String,
+        id              : Number,
+        complete        : Boolean
+    });
+
+    this.messageSchema = new mongoose.Schema({
+        id              : Number,
+        source_guid     : String,
+        created_at      : Number,
+        user_id         : String,
+        group_id        : String,
+        name            : String,
+        avatar_url      : String,
+        text            : String,
+        system          : Boolean,
+        attachments     : [String],
+        favorited_by    : [String]
+    });
+
+    this.storedMessages = mongoose.model(groupID, messageSchema);
+
     }
 
+    GetMessages.prototype.retrieveAll = function(){
+        this.index(null);
+
+        db.once('open', function(){
+            this.messageBounds.find({'bound', 'latest'}, function(error, response) {
+                if(!error){
+                    mongoose.connection.close();
+                    console.log(response);
+                }
+            });
+        });
+    }
+
+
     GetMessages.prototype.before = function(beforeID){
+        this.index({before_id: beforeID}, true);
+    }
+
+
+    GetMessages.prototype.index = function(options){
         var self = this;
         API.Messages.index(
             ACCESS_TOKEN,
             this.groupID,
-            {before_id: beforeID},
+            options,
             function(error,response) {
                 if (!error) {
                     self.responseHandler(response);  
                 } else  {
-                    console.log(error);
+                    console.log("\033[1;31mResponse Error\033[0m\n");
                 }
-
-            }
-        )
-    }
-
-    GetMessages.prototype.after = function(sinceID){
-        API.Messages.index(
-            ACCESS_TOKEN,
-            this.groupID,
-            {since_id: sinceID},
-            function(error,response) {
-                if (!error) {
-                    self.responseHandler(response);  
-                } else  {
-                    console.log(error);
-                }
-
             }
         )
     }
@@ -170,11 +182,12 @@ if (process.argv.length == 3) {
         }  
     }
 
-    
-    
+
+    ACCESS_TOKEN = 'c74e9900384b013104357e620898ea29';
+    var GROUP_ID = '6391102';
 
     var getMessages = new GetMessages(GROUP_ID);
-    getMessages.before('138548622663293251');
+    getMessages.retrieveAll('138548488212805088');
 
 
     /************************************************************************

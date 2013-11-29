@@ -8,6 +8,6 @@
   "dependencies": {
     "groupme": "*",
     "mongodb": "*",
-    "monk": "*"
+    "mongojs": "*"
   }
 }
