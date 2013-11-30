@@ -18,8 +18,6 @@ https://github.com/njoubert
 
 var GroupMe = require('groupme');
 var API = require('groupme').Stateless;
-var mongo = require('mongodb');
-var mongoose = require('mongoose');
 
 
 var BOT_LISTENS_FOR = "@BOT";
@@ -101,93 +99,6 @@ if (process.argv.length == 3) {
     var USER_ID  = process.argv[3];
     var BOT_NAME = process.argv[4];
 
-
-    /************************************************************************
-     * Retrieve all prior messages not stored in the database
-     ***********************************************************************/
-
-    var GetMessages = function(groupID){
-    this.groupID = groupID;
-
-    mongoose.connect('localhost:27017/Manfred');
-    var db = mongoose.connection;
-    db.on('error', console.error.bind(console, 'connection error:'));
-    
-    this.messageBounds = new mongoose.Schema({
-        bound           : String,
-        id              : Number,
-        complete        : Boolean
-    });
-
-    this.messageSchema = new mongoose.Schema({
-        id              : Number,
-        source_guid     : String,
-        created_at      : Number,
-        user_id         : String,
-        group_id        : String,
-        name            : String,
-        avatar_url      : String,
-        text            : String,
-        system          : Boolean,
-        attachments     : [String],
-        favorited_by    : [String]
-    });
-
-    this.storedMessages = mongoose.model(groupID, messageSchema);
-
-    }
-
-    GetMessages.prototype.retrieveAll = function(){
-        this.index(null);
-
-        db.once('open', function(){
-            this.messageBounds.find({'bound', 'latest'}, function(error, response) {
-                if(!error){
-                    mongoose.connection.close();
-                    console.log(response);
-                }
-            });
-        });
-    }
-
-
-    GetMessages.prototype.before = function(beforeID){
-        this.index({before_id: beforeID}, true);
-    }
-
-
-    GetMessages.prototype.index = function(options){
-        var self = this;
-        API.Messages.index(
-            ACCESS_TOKEN,
-            this.groupID,
-            options,
-            function(error,response) {
-                if (!error) {
-                    self.responseHandler(response);  
-                } else  {
-                    console.log("\033[1;31mResponse Error\033[0m\n");
-                }
-            }
-        )
-    }
-
-    GetMessages.prototype.responseHandler = function(response){
-        var self = this;
-        if(response.messages.length < 20){
-            console.log(response.messages);
-        }else{
-            console.log(response.messages);
-            self.before(response.messages[19].id);
-        }  
-    }
-
-
-    ACCESS_TOKEN = 'c74e9900384b013104357e620898ea29';
-    var GROUP_ID = '6391102';
-
-    var getMessages = new GetMessages(GROUP_ID);
-    getMessages.retrieveAll('138548488212805088');
 
 
     /************************************************************************
