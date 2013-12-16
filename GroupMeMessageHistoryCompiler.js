@@ -1,3 +1,10 @@
+//TODO: Make Recent Message gathering more robust in storing latest message bounds
+//TODO: Set Timeouts for API calls and a resetting failure countdown
+//TODO: Close database connection
+//TODO: Group And Token inputs through commandline ARGV
+//TODO: Make calls Asyncronously managing failed responses
+
+
 /**
  * Module dependencies.
  */
