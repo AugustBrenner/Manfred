@@ -18,7 +18,7 @@ https://github.com/njoubert
 
 var GroupMe             = require('groupme');
 var API                 = require('groupme').Stateless;
-var Incomming    = require('./MessageProcessor');
+var Processor           = require('./MessageProcessor');
 
 
 /************************************************************************
@@ -145,7 +145,7 @@ if (process.argv.length == 3) {
         console.log("[IncomingStream 'message'] Message Received\n" + msg["data"]["subject"]["text"]);
 
         // process message
-        Incomming.process(ACCESS_TOKEN, bot_id, msg);
+        Processor.process(ACCESS_TOKEN, bot_id, msg);
 
     });
 

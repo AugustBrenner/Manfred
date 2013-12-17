@@ -16,7 +16,7 @@ Incomming.process = function(ACCESS_TOKEN, bot_id, message){
             API.Bots.post(
                 ACCESS_TOKEN, // Identify the access token
                 bot_id, // Identify the bot that is sending the message
-                message["data"]["subject"]["name"]+ ":" + message["data"]["subject"]["text"].replace(BOT_LISTENS_FOR, ""), // Construct the message
+                message["data"]["subject"]["name"]+ ": " + message["data"]["subject"]["text"].replace(BOT_LISTENS_FOR, ""), // Construct the message
                 {}, // No pictures related to this post
                 function(error,response) {
                     if (error) {
