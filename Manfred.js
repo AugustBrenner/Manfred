@@ -16,9 +16,9 @@ https://github.com/njoubert
 
 
 
-var GroupMe = require('groupme');
-var API = require('groupme').Stateless;
-var MessageProcessor = require('./MessageProcessor.js')
+var GroupMe             = require('groupme');
+var API                 = require('groupme').Stateless;
+var Incomming    = require('./MessageProcessor');
 
 
 /************************************************************************
@@ -104,7 +104,6 @@ if (process.argv.length == 3) {
      * Set up the message-based IncomingStream and the HTTP push
      ***********************************************************************/
 
-    var BOT_LISTENS_FOR = "|";
     var bot_id = null;
 
     var retryCount = 3;
@@ -120,6 +119,7 @@ if (process.argv.length == 3) {
         console.log("[IncomingStream 'status']", str, args);
     });
     */
+    
 
     // This waits for the IncomingStream to complete its handshake and start listening.
     // We then get the bot id of a specific bot.
@@ -144,6 +144,8 @@ if (process.argv.length == 3) {
     incoming.on('message', function(msg) {
         console.log("[IncomingStream 'message'] Message Received\n" + msg["data"]["subject"]["text"]);
 
+        // process message
+        Incomming.process(ACCESS_TOKEN, bot_id, msg);
 
     });
 
