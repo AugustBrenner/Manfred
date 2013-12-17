@@ -20,8 +20,6 @@ var GroupMe = require('groupme');
 var API = require('groupme').Stateless;
 
 
-var BOT_LISTENS_FOR = "@BOT";
-
 /************************************************************************
  * Read the access token from the command line.
  ***********************************************************************/
@@ -105,6 +103,7 @@ if (process.argv.length == 3) {
      * Set up the message-based IncomingStream and the HTTP push
      ***********************************************************************/
 
+    var BOT_LISTENS_FOR = "|";
     var bot_id = null;
 
     var retryCount = 3;
@@ -152,7 +151,7 @@ if (process.argv.length == 3) {
                 API.Bots.post(
                     ACCESS_TOKEN, // Identify the access token
                     bot_id, // Identify the bot that is sending the message
-                    "BOT's got " + msg["data"]["subject"]["name"]+ ":" + msg["data"]["subject"]["text"].replace(BOT_LISTENS_FOR, ""), // Construct the message
+                    msg["data"]["subject"]["name"]+ ":" + msg["data"]["subject"]["text"].replace(BOT_LISTENS_FOR, ""), // Construct the message
                     {}, // No pictures related to this post
                     function(error,response) {
                         if (error) {
