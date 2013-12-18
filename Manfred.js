@@ -96,7 +96,7 @@ if (process.argv.length == 3) {
     // Step 3: Now we have a bot registered and we can start up.
 
     var USER_ID  = process.argv[3];
-    var BOT_NAME = process.argv[4];
+    var BOT_ID = process.argv[4];
 
 
 
@@ -104,7 +104,7 @@ if (process.argv.length == 3) {
      * Set up the message-based IncomingStream and the HTTP push
      ***********************************************************************/
 
-    var bot_id = null;
+    var group_id = null;
 
     var retryCount = 3;
 
@@ -129,11 +129,11 @@ if (process.argv.length == 3) {
         API.Bots.index(ACCESS_TOKEN, function(error,response) {
             if (!error) {
                 for (var i = 0; i < response.length; i++) {
-                    if (response[i].name == BOT_NAME) {
-                        bot_id = response[i].bot_id;
+                    if (response[i].bot_id == BOT_ID) {
+                        group_id = response[i].group_id;
                     }
                 }
-                console.log("[API.Bots.index return] Firing up bot!", bot_id);
+                console.log("[API.Bots.index return] Firing up bot!", BOT_ID);
             }
         });
 
@@ -145,7 +145,7 @@ if (process.argv.length == 3) {
         console.log("[IncomingStream 'message'] Message Received\n" + msg["data"]["subject"]["text"]);
 
         // process message
-        Processor.process(ACCESS_TOKEN, bot_id, msg);
+        Processor.process(ACCESS_TOKEN, BOT_ID, group_id, msg);
 
     });
 
