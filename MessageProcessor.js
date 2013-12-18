@@ -7,7 +7,7 @@ Incomming.process       = {};
 Incomming.process = function(ACCESS_TOKEN, bot_id, group_id, message){
 
     var BOT_LISTENS_FOR = "|";
-    var NAME_MODIFIER = "|"
+    var NAME_MODIFIER = "|";
 
     if (message.data 
         && message.data.subject
@@ -21,7 +21,7 @@ Incomming.process = function(ACCESS_TOKEN, bot_id, group_id, message){
                 bot_id, // Identify the bot that is sending the message
                 params,
                 function(error, response) {
-                    
+            
                     API.Bots.post(
                         ACCESS_TOKEN, // Identify the access token
                         bot_id, // Identify the bot that is sending the message
