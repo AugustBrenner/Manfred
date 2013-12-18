@@ -30,8 +30,8 @@ var DATABASE_URL = 'localhost:27017/Manfred';
  */
 var GetMessages = function(groupID){
 this.groupID = groupID;
-this.newLatestMessage;
-this.oldLatestMessage;
+this.lowerBound;
+this.upperBound;
 
 var collections = ["Group" + this.groupID + "Messages", "Group" + this.groupID + "Bounds"];
 this.db = mongojs.connect(DATABASE_URL, collections);
@@ -52,14 +52,17 @@ GetMessages.prototype.retrieveAll = function(){
     this.db.collection("Group" + this.groupID + "Bounds").find({bound : "earliest"}, function(error, response){
         // If Database call successful handle response
         if(!error){
-            // If database call returns empty, log it to the console and call the]
+            // If database call returns empty, log it to the console and call the
             // instatiateBounds methods
             if(response[0] == null){
                 // Insert and empty lower bound
                 console.log("\033[1;31mEmpty Database\033[0m\n");
                 self.instantiateBounds("earliest");
+                self.instantiateBounds("lower");
+                self.instantiateBounds("upper");
+                self.instantiateBounds("latest");
             }
-            // If databse response comes back with a lower bound entry
+            // If database response comes back with a lower bound entry
             // determine if the the bound is complete or not
             else{
                 // If the response is not compete begin recursively sending
@@ -71,6 +74,7 @@ GetMessages.prototype.retrieveAll = function(){
                 // If the database comes back complete, Log the database as complete
                 else{
                     console.log("\033[92mDatabase Complete\033[0m\n");
+                    
                     self.after(); 
                 }
             }
@@ -98,15 +102,13 @@ GetMessages.prototype.instantiateBounds = function(bound) {
         complete   : false
         },function(error, response){
             if(!error){
-                if(bound == "earliest")
+                if(bound == "latest")
                 {
-                    self.instantiateBounds("latest")
-                } else {
-                    self.before(null, false)
+                    self.before(null, false);
                 }
                 console.log("\033[92m" + bound + " Bound Instantiated\033[0m\n");
             } else{
-                console.log("\033[1;31m" + bound + "Lower Bound Failed to Instantiate\033[0m\n");
+                console.log("\033[1;31m" + bound + "Bound Failed to Instantiate\033[0m\n");
             }
         }
     );
@@ -132,15 +134,26 @@ GetMessages.prototype.before = function(beforeID, checkUpperBound){
 
 GetMessages.prototype.after = function(){
     var self = this;
-        this.db.collection("Group" + this.groupID + "Bounds").find({bound : "latest"}, function(error, response){
-            if(!error){
-                self.oldLatestMessage = parseInt(response[0].id);
-                self.index(null, true, true);
-            } else {
-                console.log("\033[1;31mDatabase Search Error\033[0m\n");
-            }
+    this.db.collection("Group" + this.groupID + "Bounds").find({bound : "lower"}, function(error, response){
+        if(!error){
+            self.lowerBound = parseInt(response[0].id);
+
+            self.db.collection("Group" + self.groupID + "Bounds").find({bound : "upper"}, function(error, response){
+                if(!error){
+                    self.upperBound = parseInt(response[0].id);
+                    if(self.upperBound > self.lowerBound){
+                        self.before(self.upperBound, true);
+                    } else {
+                        self.index(null, true, true);
+                    }
+                } else {
+                    console.log("\033[1;31mDatabase Search Error\033[0m\n");
+                }
+            });
+        } else{
+            console.log("\033[1;31mDatabase Search Error\033[0m\n");
         }
-    );
+    });
 }
 
 /**
@@ -182,8 +195,15 @@ GetMessages.prototype.responseHandler = function(response, beforeSearch, checkUp
     var messages = response.messages;
     // If latest message update newLatestMessage variable for potential
     // bounds shift
-    if(beforeSearch == true){
-        this.newLatestMessage = messages[0].id;
+    if(beforeSearch){
+        this.modifyBounds("upper", messages[0].id.toString(), false);
+        this.modifyBounds("latest", messages[0].id.toString(), false);
+
+        this.upperBound = messages[0].id;
+
+        if(!checkUpperBound){
+            this.modifyBounds("lower", messages[0].id.toString(), false);
+        }
     }
     // If the length of the returned message is shorter than 20
     // signals to the databaseInsert method to mark the database as complete
@@ -206,10 +226,20 @@ GetMessages.prototype.responseHandler = function(response, beforeSearch, checkUp
 GetMessages.prototype.databaseInsert = function(messages, counter, length, finished, checkUpperBound) { 
     var self = this;
     var complete = false;
-    //Stores Upper Bounds data once all new messages have been stored in the database
-    if(checkUpperBound && messages[counter].id <= this.oldLatestMessage){
-        this.modifyBounds("latest", this.newLatestMessage.toString(), false);
+
+    // check bounds to see if they merge
+    if(checkUpperBound && messages[counter].id <= this.lowerBound){
+        this.modifyBounds("upper", messages[counter].id.toString(), false);
+        self.db.collection("Group" + self.groupID + "Bounds").find({bound : "latest"}, function(error, response){
+            if(!error){
+                self.modifyBounds("lower", response[0].id.toString(), false);
+                self.modifyBounds("upper", response[0].id.toString(), false);
+            }else {
+                console.log("\033[1;31mDatabase Search Error\033[0m\n");
+            }
+        });
     } else {
+
         // Marks the completion peramter to be inserted into the database as true
         // for the final message.
         if(counter == (length - 1) && finished){
@@ -233,11 +263,12 @@ GetMessages.prototype.databaseInsert = function(messages, counter, length, finis
                 // and handle the recursion.
                 if(!error){
                     console.log("\033[92m" + (counter + 1).toString() + "/" + length.toString() + " Insert Successful\033[0m\n");
-                    self.modifyBounds("earliest", messages[counter].id.toString(), complete);
-                    // Stores upper bound data once before request completes
-                    if(!checkUpperBound && complete){
-                        self.modifyBounds("latest", self.newLatestMessage.toString(), false);
+                    if(checkUpperBound){
+                        self.modifyBounds("upper", messages[counter].id.toString(), false); 
+                    }else{
+                        self.modifyBounds("earliest", messages[counter].id.toString(), complete);
                     }
+
                     // If all of the messages have been processed call the before function
                     // to loop through the next set of API calls
                     if(counter >= (length - 1)){
@@ -293,7 +324,7 @@ GetMessages.prototype.modifyBounds = function(bounds, messageID, completed){
 
 
 ACCESS_TOKEN = 'c74e9900384b013104357e620898ea29';
-var GROUP_ID = '1701426';
+var GROUP_ID = '6391102';
 
 var getMessages = new GetMessages(GROUP_ID);
-getMessages.retrieveAll('138548488212805088');
+getMessages.retrieveAll();
