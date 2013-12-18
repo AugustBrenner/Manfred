@@ -15,10 +15,20 @@ var mongojs = require('mongojs');
 
 
 /**
- * Database Address 
+ * Command line arguments. 
  */
+
+var ACCESS_TOKEN = process.argv[2];
+var GROUP_ID = process.argv[3];
+//var DATABASE_URL = process.argv[4];
 var DATABASE_URL = 'localhost:27017/Manfred';
 
+
+/**
+ * Prepare functions for export. 
+ */
+MessageCompiler               = {};
+MessageCompiler.getMessages   = {};
 
 /**
  * GetMessages Class
@@ -28,8 +38,9 @@ var DATABASE_URL = 'localhost:27017/Manfred';
  * 
  * Input: groupID
  */
-var GetMessages = function(groupID){
+var GetMessages = function(at, groupID){
 this.groupID = groupID;
+this.accessToken = at;
 this.lowerBound;
 this.upperBound;
 
@@ -167,7 +178,7 @@ GetMessages.prototype.after = function(){
 GetMessages.prototype.index = function(options, beforeSearch, checkUpperBound){
     var self = this;
     API.Messages.index(
-        ACCESS_TOKEN,
+        this.accessToken,
         this.groupID,
         options,
         function(error,response) {
@@ -322,9 +333,18 @@ GetMessages.prototype.modifyBounds = function(bounds, messageID, completed){
     );
 }
 
+MessageCompiler.getMessages = function(ACCESS_TOKEN, GROUP_ID) {
+    var getMessages = new GetMessages(ACCESS_TOKEN, GROUP_ID);
+    getMessages.retrieveAll();
+}
 
-ACCESS_TOKEN = 'c74e9900384b013104357e620898ea29';
-var GROUP_ID = '6391102';
+/**
+ * Run compiler from command line.
+ */
+MessageCompiler.getMessages(ACCESS_TOKEN, GROUP_ID);
 
-var getMessages = new GetMessages(GROUP_ID);
-getMessages.retrieveAll();
+
+/**
+ * Export functions to be used by node.
+ */
+module.exports = MessageCompiler;
