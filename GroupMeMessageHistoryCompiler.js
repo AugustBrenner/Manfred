@@ -39,6 +39,7 @@ MessageCompiler.getMessages   = {};
  * Input: groupID
  */
 var GetMessages = function(at, groupID){
+this.end = false;
 this.groupID = groupID;
 this.accessToken = at;
 this.lowerBound;
@@ -93,6 +94,7 @@ GetMessages.prototype.retrieveAll = function(){
         // If the database call returns and error, log the error.
         else {
             console.log("\033[1;31mDatabase Search Error\033[0m\n");
+            process.exit(1);
         }
     });
 }
@@ -120,6 +122,7 @@ GetMessages.prototype.instantiateBounds = function(bound) {
                 console.log("\033[92m" + bound + " Bound Instantiated\033[0m\n");
             } else{
                 console.log("\033[1;31m" + bound + "Bound Failed to Instantiate\033[0m\n");
+                process.exit(1);
             }
         }
     );
@@ -159,10 +162,12 @@ GetMessages.prototype.after = function(){
                     }
                 } else {
                     console.log("\033[1;31mDatabase Search Error\033[0m\n");
+                    process.exit(1);
                 }
             });
         } else{
             console.log("\033[1;31mDatabase Search Error\033[0m\n");
+            process.exit(1);
         }
     });
 }
@@ -187,6 +192,7 @@ GetMessages.prototype.index = function(options, beforeSearch, checkUpperBound){
                 self.responseHandler(response, beforeSearch, checkUpperBound);  
             } else  {
                 console.log("\033[1;31mResponse Error\033[0m\n");
+                process.exit(1);
             }
         }
     )
@@ -243,10 +249,13 @@ GetMessages.prototype.databaseInsert = function(messages, counter, length, finis
         this.modifyBounds("upper", messages[counter].id.toString(), false);
         self.db.collection("Group" + self.groupID + "Bounds").find({bound : "latest"}, function(error, response){
             if(!error){
+                self.end = true;
                 self.modifyBounds("lower", response[0].id.toString(), false);
                 self.modifyBounds("upper", response[0].id.toString(), false);
+                
             }else {
                 console.log("\033[1;31mDatabase Search Error\033[0m\n");
+                process.exit(1);
             }
         });
     } else {
@@ -254,6 +263,7 @@ GetMessages.prototype.databaseInsert = function(messages, counter, length, finis
         // Marks the completion peramter to be inserted into the database as true
         // for the final message.
         if(counter == (length - 1) && finished){
+            self.end = true;
             complete = true;
         }
         // inserts the message into the database
@@ -273,6 +283,7 @@ GetMessages.prototype.databaseInsert = function(messages, counter, length, finis
                 // If the response is successful, log the successful insert, modify bounds
                 // and handle the recursion.
                 if(!error){
+                    
                     console.log("\033[92m" + (counter + 1).toString() + "/" + length.toString() + " Insert Successful\033[0m\n");
                     if(checkUpperBound){
                         self.modifyBounds("upper", messages[counter].id.toString(), false); 
@@ -297,6 +308,7 @@ GetMessages.prototype.databaseInsert = function(messages, counter, length, finis
                 // If the insert failed log it.
                 else{
                     console.log("\033[1;31mInsert Error\033[0m\n");
+                    process.exit(1);
                 }
             }
         );
@@ -313,6 +325,7 @@ GetMessages.prototype.databaseInsert = function(messages, counter, length, finis
  * Input: bounds, messageID, completed
  */
 GetMessages.prototype.modifyBounds = function(bounds, messageID, completed){
+    var self = this;
     this.db.collection("Group" + this.groupID + "Bounds").update(
     {
             bound   : bounds
@@ -326,8 +339,15 @@ GetMessages.prototype.modifyBounds = function(bounds, messageID, completed){
         },function(error, response){
             if(!error){
                 console.log("\033[92m" + bounds + "Bound Update Successful\033[0m\n");
+                if(bounds == "upper" && self.end){
+                    process.exit(code=0);
+                } else if(self.end) {
+                    self.modifyBounds("upper", messageID, false);
+                }
+
             } else{
                 console.log("\033[1;31m" + bounds + "Bound Update Error\033[0m\n");
+                process.exit(1);
             }
         }
     );
