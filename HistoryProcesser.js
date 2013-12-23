@@ -1,0 +1,1 @@
+var mongojs = require('mongojs');

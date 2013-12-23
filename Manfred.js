@@ -28,7 +28,7 @@ var Processor           = require('./MessageProcessor');
 // No command line arguments, we blow out. We need an access token.
 
 if (process.argv.length < 3) {
-    console.log("Usage: node HelloBot.js ACCESS_TOKEN [user_id] [botname]");
+    console.log("Usage: node Manfred.js ACCESS_TOKEN [user_id] [botname]");
     console.log("  Passing only ACCESS_TOKEN - returns user and group info");
     console.log("  Passing ACCESS_TOKEN, USER_ID, GROUP_ID, BOT_NAME - creates a new group");
     console.log("  Passing ACCESS_TOKEN, USER_ID, BOT_NAME - starts up the bot");
