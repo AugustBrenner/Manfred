@@ -30,8 +30,8 @@ var Processor           = require('./MessageProcessor');
 if (process.argv.length < 3) {
     console.log("Usage: node Manfred.js ACCESS_TOKEN [user_id] [botname]");
     console.log("  Passing only ACCESS_TOKEN - returns user and group info");
-    console.log("  Passing ACCESS_TOKEN, USER_ID, GROUP_ID, BOT_NAME - creates a new group");
-    console.log("  Passing ACCESS_TOKEN, USER_ID, BOT_NAME - starts up the bot");
+    console.log("  Passing ACCESS_TOKEN, USER_ID, GROUP_ID, BOT_NAME - creates a new bot");
+    console.log("  Passing ACCESS_TOKEN, USER_ID, BOT_ID - starts up the bot");
     process.exit(1);
 } 
 var ACCESS_TOKEN = process.argv[2];
@@ -141,11 +141,15 @@ if (process.argv.length == 3) {
 
     // This waits for messages coming in from the IncomingStream
     // If the message contains @BOT, we parrot the message back.
-    incoming.on('message', function(msg) {
-        console.log("[IncomingStream 'message'] Message Received\n" + msg["data"]["subject"]["text"]);
+    incoming.on('message', function(message) {
+        if(typeof message !== "undefined" && message != null){
+            
+            // Log Message.
+            console.log("[IncomingStream 'message'] Message Received\n" + message.data.subject.text);
 
-        // process message
-        Processor.process(ACCESS_TOKEN, BOT_ID, group_id, msg);
+            // Process message.
+            Processor.process(ACCESS_TOKEN, BOT_ID, group_id, message);
+        }
 
     });
 
