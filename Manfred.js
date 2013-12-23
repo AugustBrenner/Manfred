@@ -142,7 +142,7 @@ if (process.argv.length == 3) {
     // This waits for messages coming in from the IncomingStream
     // If the message contains @BOT, we parrot the message back.
     incoming.on('message', function(message) {
-        if(typeof message !== "undefined" && message != null){
+        if(typeof message.data !== "undefined" && message != null){
             
             // Log Message.
             console.log("[IncomingStream 'message'] Message Received\n" + message.data.subject.text);
