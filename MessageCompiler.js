@@ -1,10 +1,3 @@
-//TODO: Make Recent Message gathering more robust in storing latest message bounds
-//TODO: Set Timeouts for API calls and a resetting failure countdown
-//TODO: Close database connection
-//TODO: Group And Token inputs through commandline ARGV
-//TODO: Make calls Asyncronously managing failed responses
-
-
 /**
  * Module dependencies.
  */
@@ -41,6 +34,8 @@ var GetMessages = function(ACCESS_TOKEN, groupID){
     this.accessToken = ACCESS_TOKEN;
     this.lowerBound;
     this.upperBound;
+    this.latestBound;
+    this.earliestBound;
 
     var collections = ["Group" + this.groupID + "Messages", "Group" + this.groupID + "Bounds"];
     this.db = mongojs.connect(DATABASE_URL, collections);
@@ -56,58 +51,143 @@ var GetMessages = function(ACCESS_TOKEN, groupID){
  */
 GetMessages.prototype.retrieveAll = function(callback){
     if(this.accessToken && this.groupID){
-        var self = this;
+        var self 			= this;
+        var errors 			= [];
+        var responses 		= [];
+        var callbackCount 	= 0;
+
+
         // Queries the database for the earliest bounds and if not complete, pulls
         // all messages before the earliest stored message in the database.
-        this.db.collection("Group" + this.groupID + "Bounds").find({bound : "earliest"}, function(error, response){
+        this.db.collection("Group" + this.groupID + "Bounds").find().sort({bound: -1}, function(error, response){
+ 			var callbackNumber = 0;
             // If Database call successful handle response
             if(!error || error.length == 0){
+                
+                var bounds = response;
                 // If database call returns empty, log it to the console and call the
                 // instatiateBounds methods
-                if(response[0] == null){
+                if(!bounds[0] || !bounds[1] || !bounds[2] || !bounds[3]){
 
-                    console.log("\033[1;31mEmpty Database\033[0m\n");
+                    console.log("\033[93mEmpty Database\033[0m");
                     
                     // Instantiate bounds
-                    self.instantiateBounds(1, function(error, response){
+                    self.instantiateBounds(function(error, response){
                         if(!error || error.length == 0){
-                            callback(null, response);
+                            // updateBounds
+                            self.newBounds(["lower", "upper", "latest"], function(error, response){
+		                        if(!error || error.length == 0){
+		                            self.getMessages(0, parseInt(response), function(error, response){
+				                        if(!error || error.length == 0){
+				                            callback(null, response);
+				                        }else{
+				                            callback(error);
+				                        }
+				                    });
+		                        }else{
+		                            callback(error);
+		                        }
+		                    });
                         }else{
                             callback(error);
                         }
                     });
                 }
-                // If database response comes back with a lower bound entry
+
+                // If database response comes back with bound entries
                 // determine if the the bound is complete or not
                 else{
-                    // If the response is not compete begin recursively sending
-                    // GET requests to gather all remaining messages.
-                    if(!response[0].complete){
-                        console.log("\033[92m" + response[0].id + "\033[0m\n");
-                        self.before(parseInt(response[0].id), function(error, response){
-                            if(!error || error.length == 0){
-                                callback(null, response);
-                            }else{
-                                callback(error);
-                            }
-                        });
-                    }
-                    // If the database comes back complete, Log the database as complete
-                    else{
-                        console.log("\033[92mDatabase Complete\033[0m\n");
-                        self.after(function(error, response){
-                            if(!error || error.length == 0){
-                                callback(null, response);
-                            }else{
-                                callback(error);
-                            }
-                        });
+
+                	var getRemaining = function(){ 
+
+                		self.newBounds(["latest"], function(error, response){
+	                        if(!error || error.length == 0){
+	                        	var latest = parseInt(response);
+
+	                            self.getMessages(self.latestBound, latest, function(error, response){
+			                        if(!error || error.length == 0){
+			                        	self.modifyBounds(["latest"], latest.toString(), false, function(error, response){   
+							            	if (!error || error.length == 0 && response) {   
+								            		console.log("\033[92mNew Retrieval Complete\033[0m");
+								            		responses.push(response);
+			                            			callback(errors, responses);
+							                } else {
+							                    errors.push(error);
+			                            		callback(errors, responses);
+							                }
+							            });
+			                        }else{
+			                        	errors.push(error);
+			                            callback(errors, responses);
+			                        }
+			                    });
+	                        }else{
+	                        	errors.push(error);
+	                            callback(errors, responses);
+	                        }
+	                    });	
+                	}
+
+
+                	// Get Bounds
+                	self.upperBound 	= parseInt(bounds[0].id);
+                	self.lowerBound 	= parseInt(bounds[1].id);
+                	self.latestBound 	= parseInt(bounds[2].id);
+                	self.earliestBound	= parseInt(bounds[3].id);
+
+                	// If the upper bound is higher than the lower bound, retrieve all messages between them.
+                	if(self.upperBound > self.lowerBound){
+                		console.log("\033[94mMerging Message Data\033[0m");
+                		var latest	= self.latestBound;
+                		callbackNumber++;
+                		self.getMessages(self.lowerBound, self.upperBound, function(error, response){
+	                        if(!error || error.length == 0){
+	                        	// Store new latest bound
+				                self.modifyBounds(["upper", "lower"], latest.toString(), false, function(error, response){   
+					            	if (!error || error.length == 0 && response) {   
+						            		responses.push(response);
+					                } else {
+					                    errors.push(error);
+					                }
+					            });
+	                        }else{
+	                            errors.push(error);
+	                        }
+	                        callbackNumber--;
+	                        if(callbackNumber == 0){
+	                        	getRemaining();
+	                        }
+	                    });
+                	}
+
+                	// If the lowest bound is not complete
+                	var earliest = parseInt(bounds[3].id);
+                	if(!bounds[3].complete && earliest != 0){
+                		console.log("\033[94mCollecting Earlier Message Data\033[0m");
+                		callbackNumber++;
+                		self.getMessages(0, self.earliestBound, function(error, response){
+	                        if(!error || error.length == 0){
+	                            responses.push(response);
+	                        }else{
+	                            errors.push(error);
+	                        }
+	                        callbackNumber--;
+	                        if(callbackNumber == 0){
+	                        	getRemaining();
+	                        }
+	                    });
+                	}
+
+                	// Retrieve All Remaining Messages
+                	if(callbackNumber == 0){
+                		console.log("\033[94mUpdating Message Data\033[0m");
+                    	getRemaining();
                     }
                 }
             }
             // If the database call returns and error, log the error.
             else {
-                console.log("\033[1;31mDatabase Search Error\033[0m\n");
+                console.log("\033[1;31mDatabase Search Error\033[0m");
                 callback("Database Bounds Search Error");
             }
         });
@@ -118,354 +198,53 @@ GetMessages.prototype.retrieveAll = function(callback){
 }
 
 
+
+
+
+
+
+
 /**
  * instantiateBounds method
  *
  * create a collection and both an upper and lower bounds document
  * for efficiently pinging the GroupMe API
  */
-GetMessages.prototype.instantiateBounds = function(bound, callback) {
+GetMessages.prototype.instantiateBounds = function(callback) {
 
     // Instantiate objects.
     var self = this;
-    var bounds = {1: "earliest", 2: "lower", 3: "upper", 4: "latest"};
+    var bounds = {0: "earliest", 1: "lower", 2: "upper", 3: "latest"};
+    var boundsLength = 4;
+    var errors 		= [];
+    var responses 	= [];
 
-    // Insert an empty lower bound
-    this.db.collection("Group" + this.groupID + "Bounds").save({
-        bound   : bounds[bound],
-        id      : "0",
-        complete   : false
-        },function(error, response){
-            if(!error || error.length == 0){
+    for(var i = 0; i < 4; i++){
+	    // Insert an empty lower bound
+	    this.db.collection("Group" + this.groupID + "Bounds").save({
+	        bound   : bounds[i],
+	        id      : "0",
+	        complete   : false
+	        },function(error, response){
+	            if(!error || error.length == 0){
 
                 // Respond with success
-                console.log("\033[92m" + bounds[bound] + " Bound Instantiated\033[0m\n");
+                console.log("\033[92mBound Instantiated\033[0m");
+                responses.push(response);
 
-                if(bound >= 4) {
-                    // End recursion instantiating bounds and begin pulling messages
-                    self.before(null, false, function(error, response){
-                        if(!error || error.length == 0){
-                            callback(null, response);
-                        }else{
-                            callback(error);
-                        }
-                    });
-                } else {
-                    // Iterate and recurse
-                    self.instantiateBounds(bound + 1, function(error, response){
-                        if(!error || error.length == 0){
-                            callback(null, response);
-                        }else{
-                            callback(error);
-                        }
-                    });
-                }
-            } else{
-                console.log("\033[1;31m" + bounds[bound] + "Bound Failed to Instantiate\033[0m\n");
-                callback(bounds[bound] + "Bound Failed to Instantiate");
-            }
-        }
-    );
-}
-
-/**
- * before method
- *
- * Calls the index function with the peramiters to grab messages prior
- * to the specified message
- *
- * Input: beforeID
- */
-GetMessages.prototype.before = function(beforeID, checkUpperBound, callback){
-    // If options are null, change flag to signal potential bounds update
-    if(beforeID == null)
-    {
-        this.index(null, true, checkUpperBound, function(error, response){
-            if(!error || error.length == 0){
-                callback(null, response);
-            }else{
-                callback(error);
-            }
-        });
-    } else {
-        this.index({before_id: beforeID}, false, checkUpperBound, function(error, response){
-            if(!error || error.length == 0){
-                callback(null, response);
-            }else{
-                callback(error);
-            }
-        });
-    }
-}
-
-GetMessages.prototype.after = function(callback){
-    var self = this;
-    this.db.collection("Group" + this.groupID + "Bounds").find({bound : "lower"}, function(error, response){
-        if(!error || error.length == 0){
-            self.lowerBound = parseInt(response[0].id);
-
-            self.db.collection("Group" + self.groupID + "Bounds").find({bound : "upper"}, function(error, response){
-                if(!error || error.length == 0){
-                    self.upperBound = parseInt(response[0].id);
-                    if(self.upperBound > self.lowerBound){
-                        self.before(self.upperBound, true,  function(error, response){
-                            if(!error || error.length == 0){
-                                callback(null, response);
-                            }else{
-                                callback(error);
-                            }
-                        });
-                    } else {
-                        self.index(null, true, true,  function(error, response){
-                            if(!error || error.length == 0){
-                                callback(null, response);
-                            }else{
-                                callback(error);
-                            }
-                        });
-                    }
-                } else {
-                    console.log("\033[1;31mDatabase Search Error\033[0m\n");
-                    callback("Database Search Error");
-                }
-            });
-        } else{
-            console.log("\033[1;31mDatabase Search Error\033[0m\n");
-            callback("Database Search Error");
-        }
-    });
-}
-
-/**
- * index method
- *
- * Sends a GET request to the GroupMe API to grab messages, the response is
- * sent to the response handler message to process and recurse
- *
- * Input: options, before, checkUpperBound
- */
-GetMessages.prototype.index = function(options, beforeSearch, checkUpperBound, callback){
-    var self = this;
-    API.Messages.index(
-        this.accessToken,
-        this.groupID,
-        options,
-        function(error,response) {
-        
-            if (!error || error.length == 0 && response) {
-                self.responseHandler(response, beforeSearch, checkUpperBound, function(error, response){
-                    if(!error || error.length == 0){
-                        callback(null, response);
-                    }else{
-                        callback(error);
-                    }
-                });
-            } else  {
-                console.log("\033[1;31mMessage Get Request Response Error\033[0m\n");
-                callback("Message Get Request Response Error");
-            }
-        }
-    )
+	            } else{
+	                console.log("\033[1;31m" + bounds[bound] + " Bound Failed to Instantiate\033[0m");
+	                errors.push(error);
+	            }
+	            boundsLength--;
+	            if(boundsLength == 0){
+	            	callback(errors, responses);
+	            }
+      	});
+	}
 }
 
 
-/**
- * reponseHandler method
- *
- * Handles the response from the GroupMe API call, processes the recursion
- * and calls methods to insert them into the database
- *
- * Input: response, beforeSearch, checkUpperBound
- */
-GetMessages.prototype.responseHandler = function(response, beforeSearch, checkUpperBound, callback){
-    var self = this;
-    var length = response.messages.length;
-    var messages = response.messages;
-
-    var insertMessages = function(){
-        // If the length of the returned message is shorter than 20
-        // signals to the databaseInsert method to mark the database as complete
-        if(length < 20){
-            self.databaseInsert(messages, checkUpperBound, function(error, response){
-                if(!error || error.length == 0){
-                    responses.push(response);
-                }else{
-                    errors.push(error);
-                }
-                callback(errors, responses);
-            });  
-        }else{
-            self.databaseInsert(messages, checkUpperBound, function(error, response){
-                if(!error || error.length == 0){
-                    responses.push(response);
-                }else{
-                    errors.push(error);
-                }
-                callback(errors, responses);
-            }); 
-        }
-    } 
-    
-    // Array of asynchronous calls to update bounds
-    var bounds = [];
-    var boundsLength = 0;
-    var errors = [];
-    var responses = [];
-    
-    // If latest message update newLatestMessage variable for potential
-    // bounds shift
-    if(beforeSearch){
-        bounds = ["upper", "latest"];
-        if(!checkUpperBound){
-            bounds.push("lower");
-        }     
-    }
-    boundsLength = bounds.length;
-    
-    if(boundsLength > 0){
-        // Add calls to the array of calls
-        for(var i = 0; i < bounds.length ; i++){
-            this.modifyBounds(bounds[i], messages[0].id.toString(), false, function(error, response){
-                boundsLength --;
-                if(!error || error.length == 0){
-                    responses.push(response);
-                }else{
-                    errors.push(error);
-                }
-                if(boundsLength == 0){
-                    insertMessages();  
-                }
-            });
-        }
-    } else{
-        insertMessages();
-    }
-}
-
-
-/**
- * databaseInsert method
- *
- * Inserts the messages into the MongoDB Database recursively and completes the
- * bounds modification after every successful insert.
- *
- * Input: messages, checkUpperBound, callback
- */
-GetMessages.prototype.databaseInsert = function(messages, checkUpperBound, callback) { 
-    var self = this;
-    var waitingNumber = messages.length;
-    var length = messages.length;
-    var errors = [];
-    var responses = [];
-    if(length < 20){
-        var complete = true;
-    } else {
-        var complete = false;
-    }
-    var callAgain = function(){
-        if(!complete){
-            self.before(messages[length - 1].id, checkUpperBound, function(error, response){
-                if(!error || error.length == 0){
-                    responses.push(response);
-                }else{
-                    responses.push(errors);
-                }
-                callback(errors, responses);
-            }); 
-        } else{
-            console.log("\033[92mDatabase Up To Date\033[0m\n");
-            callback(null, "Database up to date");
-        }
-    }
-
-    console.log(this.lowerBound);
-    for(var i = 0 ; i < length; i++){
-          // check bounds to see if they merge
-        if(checkUpperBound && messages[i].id <= this.lowerBound){
-            // get latest bound from database
-            self.db.collection("Group" + self.groupID + "Bounds").find({bound : "latest"}, function(error, response){
-                if(!error || error.length == 0){
-                    var messageID = response[0].id.toString()
-                    // Set lower bound to that of latest value
-                    self.modifyBounds("lower", messageID, false, function(error, response){
-                        if(!error || error.length == 0){
-                            // Set upper bound to that of latest bound
-                            self.modifyBounds("upper", messageID, false, function(error, response){
-                                if(!error || error.length == 0){
-                                    callback(null, response);
-                                }else{
-                                    callback(error);
-                                }
-                            });
-                        }else{
-                            callback(error);
-                        }
-                    }); 
-                }else {
-                    console.log("\033[1;31mDatabase Search Error\033[0m\n");
-                    callback("Database Search Error");
-                }
-            });
-        } else {
-
-            // inserts the message into the database
-            this.db.collection("Group" + this.groupID + "Messages").save({
-                id              : messages[i].id,
-                source_guid     : messages[i].source_guid,
-                created_at      : messages[i].created_at,
-                user_id         : messages[i].user_id,
-                group_id        : messages[i].group_id,
-                name            : messages[i].name,
-                avatar_url      : messages[i].avatar_url,
-                text            : messages[i].text,
-                system          : messages[i].system,
-                attachments     : messages[i].attachments,
-                favorited_by    : messages[i].favorited_by
-                },function(error, response){
-                    
-                    // If the response is successful, log the successful insert, modify bounds
-                    // and handle the recursion.
-                    if(!error || error.length == 0){
-                        // Log insertion
-                        console.log("\033[92m Insert Successful\033[0m\n");
-                        responses.push(response);
-                        waitingNumber --;
-
-                        if(waitingNumber == 0){
-                            if(checkUpperBound){
-                                self.modifyBounds("upper", messages[length-1].id.toString(), false, function(error, response){   
-                                    if(!error || error.length == 0){
-                                        responses.push(response);
-                                    }else{
-                                        responses.push(errors);
-                                    }
-                                    callAgain();
-                                }); 
-                            }else{
-                                self.modifyBounds("earliest", messages[length-1].id.toString(), complete, function(error, response){
-
-                                    if(!error || error.length == 0){
-                                        responses.push(response);
-                                    }else{
-                                        responses.push(errors);
-                                    }
-                                    callAgain()
-                                });
-                            }
-                        }
-                    } 
-                    // If the insert failed log it.
-                    else{
-                        console.log("\033[1;31mInsertion Error\033[0m\n");
-                        callback("Message Insertion Error");
-                    }
-
-
-                }
-            );
-        }
-    }
-}
 
 
 /**
@@ -476,30 +255,234 @@ GetMessages.prototype.databaseInsert = function(messages, checkUpperBound, callb
  *
  * Input: bounds, messageID, completed
  */
-GetMessages.prototype.modifyBounds = function(bounds, messageID, completed, callback){
-    this.db.collection("Group" + this.groupID + "Bounds").update(
-    {
-            bound   : bounds
-        },
-        {   
-            $set: 
-            { 
-                id          : messageID,
-                complete    : completed
-            }
-        },function(error, response){
-            if(!error || error.length == 0){
-                console.log("\033[92m" + bounds + "Bound Update Successful\033[0m\n");
-                callback(null, bounds + "Bound Update Successful");
-            } else{
-                console.log("\033[1;31m" + bounds + "Bound Update Error\033[0m\n");
-                callback(bounds + "Bound Update Error");
+GetMessages.prototype.modifyBounds = function(bounds, messageID, completed, callback){  
+	var errors = [];
+	var length = bounds.length;
+    var callbackCount = length;
+
+	for(var i = 0; i < length; i++){
+	    this.db.collection("Group" + this.groupID + "Bounds").update(
+	    {
+	            bound   : bounds[i]
+	        },
+	        {   
+	            $set: 
+	            { 
+	                id          : messageID,
+	                complete    : completed
+	            }
+	        },function(error, response){
+	            if(!error || error.length == 0){
+	                console.log("\033[92m" + bounds + " Bound Update Successful\033[0m");
+	            } else{
+	                console.log("\033[1;31m" + bounds + "Bound Update Error\033[0m");
+	                errors.push(bounds + "Bound Update Error");
+	            }
+	            callbackCount--;
+                if(callbackCount == 0){
+                	callback(errors, "Bounds Updated Successfully");
+                }
+	        }
+	    );
+	}
+}
+
+
+
+
+
+/**
+ * newBounds Method
+ *
+ * Sends a GET request to the GroupMe API to grab the latest message
+ and sets that as the new latest bound
+ *
+ * Input: callback
+ */
+GetMessages.prototype.newBounds = function(bounds, callback){
+	var self = this;
+
+	API.Messages.index(
+        this.accessToken,
+        this.groupID,
+        null,
+        function(error,response) {
+        	
+        	var latest = response.messages[0].id;
+
+            if (!error || error.length == 0 && response) {
+
+                // Store new latest bound
+                self.modifyBounds(bounds, latest.toString(), false, function(error, response){   
+	                if(!error || error.length == 0){
+	                	callback(null, latest);	
+	                }else{
+	                    callback(error)
+	                }
+	            });
+            } else  {
+                console.log("\033[1;31mLatest Message Get Request Response Error\033[0m");
+                callback("Latest Message Get Request Response Error");
             }
         }
     );
 }
 
 
+/**
+ * index method
+ *
+ * Sends a GET request to the GroupMe API to grab messages, the response is
+ * sent to the response handler message to process and recurse
+ *
+ * Input: options, before, checkUpperBound
+ */
+GetMessages.prototype.getMessages = function(lower, upper, callback){
+    var self = this;
+    var count = 0;
+    var errors;
+    var bound;
+    if(lower == 0){
+    	bound = ["earliest"];
+    } else {
+    	bound = ["upper"];
+    }
+
+    options = {before_id: upper};
+    var flag = true;
+    var stored = true;
+
+    var messagesPost = function(){
+	    API.Messages.index(
+	        self.accessToken,
+	        self.groupID,
+	        options,
+	        function(error,response) { 
+
+	        	// Modify Count
+	        	count++;
+
+	            if (!error || error.length == 0 && response) {
+
+	            	var messages = response.messages;
+
+	            	// Loop through the array, popping off entries older than lower.
+	            	var i = messages.length;
+	            	var flag = true;
+	            	while(i > 0 && flag){
+	            		i--
+	            		if(messages[i].id <= lower){
+	            			messages.pop();
+	            		} else {
+	            			flag = false;
+	            		}
+	            	}
+
+	            	// If less than 20 messages remain mark as completed.
+	            	var completed = false;
+	            	var length = messages.length;
+	            	if(length < 20){
+	            		completed = true;
+	            	}
+
+	            	if (length != 0){
+		            	// Insert Messages into Database.
+		            	self.databaseInsert(response, function(error, response){
+	            			if(!error || error.length == 0 && response){
+	            				console.log("\033[92mMessages Stored [" + count + "]\033[0m");
+	            				// Store new latest bound
+				                self.modifyBounds(bound, messages[length -1].id.toString(), completed, function(error, response){   
+					            	if (!error || error.length == 0 && response) {   
+										if(completed) {
+						            		console.log("\033[92mRetrieval Complete\033[0m");
+						            		callback(null, "Retrieval Complete");
+					            		}
+					                } else {
+					                    stored = false;
+					                }
+					            });
+	            			} else {
+	            				console.log("\033[92mMessage Storage Failure\033[0m");
+	            				stored = false;
+	            			}
+	            		});
+
+		            	// If not completed and no storage error detected, recurse.
+		            	if(!completed && stored){
+		            		self.earliestBound = messages[19].id;
+		            		options = {before_id: messages[19].id};
+		            		console.log("\033[92mMessage Get Response Success\033[0m");
+		            		messagesPost();
+		            	} else if(!stored){
+		            		console.log(errors);
+		            		callback(errors);
+		            	}
+		            } else {
+		            	console.log("\033[93mNo New Messages\033[0m");
+		            	callback(null, "No New Messages");
+		            }
+
+	            } else  {
+	            	console.log("\033[93mMessage Get Request Response Error\033[0m");
+	            	self.modifyBounds(["earliest"], self.earliestBound, true, function(error, response){   
+		            	if (!error || error.length == 0 && response) {   
+			            		console.log("\033[92mRetrieval Complete\033[0m");
+			            		callback(null, "Retrieval Complete");
+		                } else {
+		                    callback(error);
+		                }
+		            });
+	            }
+	        }
+	    );
+	}
+
+	messagesPost();
+}
+
+
+
+
+
+/**
+ * databaseInsert method
+ *
+ * Inserts the messages into the MongoDB Database recursively and completes the
+ * bounds modification after every successful insert.
+ *
+ * Input: messages, checkUpperBound, callback
+ */
+GetMessages.prototype.databaseInsert = function(messages, callback) { 
+    var self = this;
+
+    // inserts the message into the database
+    this.db.collection("Group" + this.groupID + "Messages").insert(messages, function(error, response){
+           
+        // If the response is successful, log the successful insert, modify bounds
+        // and handle the recursion.
+        if(!error || error.length == 0){
+            // Log insertion
+            console.log("\033[92mInsertion Successful\033[0m");
+			callback(null, response);
+        } 
+        // If the insert failed log it.
+        else{
+            console.log("\033[1;31mInsertion Error\033[0m");
+            callback(error);
+        }
+    });
+}
+
+
+
+
+/**
+ * MessageCompiler getMessages method
+ *
+ * Exported prototype method to run the get messages Prototype Class.
+ *
+ * Input: ACCESS_TOKEN, GROUP_ID, callback
+ */
 MessageCompiler.getMessages = function(ACCESS_TOKEN, GROUP_ID, callback) {
     var getMessages = new GetMessages(ACCESS_TOKEN, GROUP_ID);
     getMessages.retrieveAll(function(error, response){
