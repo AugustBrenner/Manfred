@@ -175,5 +175,13 @@ if (process.argv.length == 3) {
 
     // This starts the connection process for the IncomingStream
     incoming.connect();
+    
+    // Refresh Stream
+    setInterval(function() {
+        // This starts the connection process for the IncomingStream
+        incoming.disconnect();
+        incoming.connect();
+    }, 5 * 60 * 1000);
+    
 
 }
