@@ -1,18 +1,107 @@
+
+/**
+ * Module dependencies.
+ */
 var GroupMe 		= require('groupme');
 var API 			= GroupMe.Stateless;
 
+
+/**
+ * Command line arguments. 
+ */
 var ACCESS_TOKEN 	= process.argv[2];
 var FROM_GROUP 		= process.argv[3];
 var TO_GROUP 		= process.argv[4];
+
+
+/**
+ * Prepare functions for export. 
+ */
+GroupSwitcher               	= {};
+GroupSwitcher.transferMembers   = {};
+GroupSwitcher.bindMembership	= {};
+
 
 
 var TransferMembers = function() {
 	this.oldMembers;
 	this.newMembers;
 	this.secondGroup = false;
+	this.fromGroupRoster	= {};
+	this.toGroupRoster		= {};
 }
 
-TransferMembers.prototype.gatherRoster = function(groupID) {
+
+TransferMembers.prototype.getMembers = function(fromGroup, toGroup, callback) {
+
+	// Member lists.
+	var fromMemberList	= [];
+	var toMemberList 	= [];
+
+	// Callbacks
+	var responses		= [];
+	var errors 			= [];
+	var callbackCount 	= 2;
+
+	// Populate Member Groups
+	var getMemberGroups = function(){
+		this.memberGroups(fromMemberList, toMemberList, function(error, response){
+			if(!error && response){
+				callback(response);
+			} else{
+				errors.push(error);
+				callback(errors);
+			}
+		});
+	}
+
+
+	this.gatherRoster(fromGroup, function(error, response) {
+		if (!error && response) {
+			fromMemberList = response;
+		} else {
+			errors.push(error);
+		}
+		callbackCount--;
+		if(callbackCount == 0){
+			getMembers();
+		}
+	});
+
+		this.gatherRoster(toGroup, function(error, response) {
+		if (!error && response) {
+			toMemberList = response;
+		} else {
+			errors.push(error);
+		}
+		callbackCount--;
+		if(callbackCount == 0){
+			getMembers();
+		}
+	});
+}
+
+
+TransferMembers.prototype.gatherRoster = function(groupID, callback) {
+	var self = this;
+	API.Groups.show(
+		ACCESS_TOKEN,
+		groupID,
+		function(error, response) {
+			if (!error && response) {
+				callback(null, response.members);
+			} else {
+				callback("Group Show Error");
+				console.log("Group Show Error");
+			}
+		}
+	);
+}
+
+
+/*
+
+TransferMembers.prototype.gatherRoster = function(groupID, callback) {
 	var self = this;
 	API.Groups.show(
 		ACCESS_TOKEN,
@@ -34,6 +123,8 @@ TransferMembers.prototype.gatherRoster = function(groupID) {
 		}
 	);
 }
+
+*/
 
 // Call only after populating list of old and new members
 TransferMembers.prototype.addUnique = function() {
@@ -73,3 +164,10 @@ TransferMembers.prototype.addUnique = function() {
 
 var transferMembers = new TransferMembers;
 transferMembers.gatherRoster(FROM_GROUP);
+
+
+
+/**
+ * Export functions to be used by node.
+ */
+module.exports = GroupSwitcher;
