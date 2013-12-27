@@ -340,7 +340,7 @@ GetMessages.prototype.newBounds = function(bounds, callback){
 GetMessages.prototype.getMessages = function(lower, upper, callback){
     var self = this;
     var count = 0;
-    var errors;
+    var errors = [];
     var bound;
     if(lower == 0){
     	bound = ["earliest"];
@@ -403,6 +403,7 @@ GetMessages.prototype.getMessages = function(lower, upper, callback){
 					            });
 	            			} else {
 	            				console.log("\033[92mMessage Storage Failure\033[0m");
+	            				errors.push(error);
 	            				stored = false;
 	            			}
 	            		});
@@ -452,11 +453,12 @@ GetMessages.prototype.getMessages = function(lower, upper, callback){
  *
  * Input: messages, checkUpperBound, callback
  */
-GetMessages.prototype.databaseInsert = function(messages, callback) { 
+GetMessages.prototype.databaseInsert = function(messages, callback) {
+    var messagesArray = messages.messages;
     var self = this;
 
     // inserts the message into the database
-    this.db.collection("Group" + this.groupID + "Messages").insert(messages, function(error, response){
+    this.db.collection("Group" + this.groupID + "Messages").insert(messagesArray, function(error, response){
            
         // If the response is successful, log the successful insert, modify bounds
         // and handle the recursion.
