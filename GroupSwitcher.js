@@ -6,11 +6,7 @@ var FROM_GROUP 		= process.argv[3];
 var TO_GROUP 		= process.argv[4];
 
 
-var TransferMembers = function() {
-	this.oldMembers;
-	this.newMembers;
-	this.secondGroup = false;
-}
+var TransferMembers = function() {}
 
 TransferMembers.prototype.gatherRoster = function(groupID) {
 	var self = this;
