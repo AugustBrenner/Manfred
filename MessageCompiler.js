@@ -27,7 +27,8 @@ MessageCompiler.getMessages   = {};
  * Sets up the the MongoDB collections for the GroupMe
  * group and connects to the database.
  * 
- * Input: groupID
+ * ACCESS_TOKEN		- String, personal access token for GroupMe API
+ * group_id 		- String, the ID number of the group we are accessing
  */
 var GetMessages = function(ACCESS_TOKEN, groupID){
     this.groupID = groupID;
@@ -48,6 +49,8 @@ var GetMessages = function(ACCESS_TOKEN, groupID){
  *
  * Initiates the asyncronous recursive retrieval of
  * all messages of the group not stored in the database
+ * 
+ * callback 		- callback, returns the responses and errors while retrieveing and storing messages
  */
 GetMessages.prototype.retrieveAll = function(callback){
     if(this.accessToken && this.groupID){
@@ -209,6 +212,8 @@ GetMessages.prototype.retrieveAll = function(callback){
  *
  * create a collection and both an upper and lower bounds document
  * for efficiently pinging the GroupMe API
+ *
+ * callback 		- callback, returns response from message ID insertion into bounds collection
  */
 GetMessages.prototype.instantiateBounds = function(callback) {
 
@@ -253,7 +258,10 @@ GetMessages.prototype.instantiateBounds = function(callback) {
  * Updates the MongoDB bounds collection to store current message bounds information
  * for efficient GroupMe API calls.
  *
- * Input: bounds, messageID, completed
+ * bounds 			- Array, array of strings associated with the records in the bounds collection of the MongoDB
+ * messageID 		- String, The ID of the message used as the bounding value for the updates in the bounds Array
+ * completed		- Boolean, flag inserted into the bounds collection signaling the earliest bound holds the earlist available message
+ * callback 		- callback, returns success or failure in modifying the bounds in the MongoDB
  */
 GetMessages.prototype.modifyBounds = function(bounds, messageID, completed, callback){  
 	var errors = [];
@@ -297,7 +305,7 @@ GetMessages.prototype.modifyBounds = function(bounds, messageID, completed, call
  * Sends a GET request to the GroupMe API to grab the latest message
  and sets that as the new latest bound
  *
- * Input: callback
+ * bounds 			- String, the bounds to be updated with the most recent message on the GroupMe server
  */
 GetMessages.prototype.newBounds = function(bounds, callback){
 	var self = this;
@@ -335,7 +343,9 @@ GetMessages.prototype.newBounds = function(bounds, callback){
  * Sends a GET request to the GroupMe API to grab messages, the response is
  * sent to the response handler message to process and recurse
  *
- * Input: options, before, checkUpperBound
+ * lower 			- String, The ID of th earliest message to be stored in the MongoDB
+ * upper 			- String, the ID of the message initiating the API calls to the server
+ * callback 		- callback, returns the responses and the errors from retrieving and storing messages data
  */
 GetMessages.prototype.getMessages = function(lower, upper, callback){
     var self = this;
@@ -448,10 +458,10 @@ GetMessages.prototype.getMessages = function(lower, upper, callback){
 /**
  * databaseInsert method
  *
- * Inserts the messages into the MongoDB Database recursively and completes the
- * bounds modification after every successful insert.
+ * Inserts the messages into the MongoDB Database.
  *
- * Input: messages, checkUpperBound, callback
+ * messages 		- Object, The JSON object containing an array of message data to be inserted in bulk into the MongoDB
+ * callback 		- callback, returns the last error from the bulk insert or the success response
  */
 GetMessages.prototype.databaseInsert = function(messages, callback) {
     var messagesArray = messages.messages;
@@ -481,9 +491,11 @@ GetMessages.prototype.databaseInsert = function(messages, callback) {
 /**
  * MessageCompiler getMessages method
  *
- * Exported prototype method to run the get messages Prototype Class.
+ * Exported method to run the get messages Prototype Class.
  *
- * Input: ACCESS_TOKEN, GROUP_ID, callback
+ * ACCESS_TOKEN		- String, personal access token for GroupMe API
+ * group_id 		- String, the ID number of the group we are accessing
+ * callback 		- callback, returns errors and responses from retrieving and storing message data
  */
 MessageCompiler.getMessages = function(ACCESS_TOKEN, GROUP_ID, callback) {
     var getMessages = new GetMessages(ACCESS_TOKEN, GROUP_ID);
