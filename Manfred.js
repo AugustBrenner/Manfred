@@ -18,6 +18,8 @@ https://github.com/njoubert
 
 var GroupMe             = require('groupme');
 var API                 = require('groupme').Stateless;
+var Schedule            = require('node-schedule');
+var Membership          = require('./GroupSwitcher');
 var Processor           = require('./MessageProcessor');
 
 
@@ -75,28 +77,14 @@ if (process.argv.length == 3) {
         }
     });
 
-} else if (process.argv.length == 6) {
-
-    // Step 2: Create a bot with the given name 
-
-    var USER_ID  = process.argv[3];
-    var GROUP_ID = process.argv[4];
-    var BOT_NAME = process.argv[5];
-
-    API.Bots.create(ACCESS_TOKEN, BOT_NAME, GROUP_ID, {}, function(error,response) {
-        if (!error) {
-            console.log(response);
-        } else {
-            console.log("Error creating bot!")
-        }
-    });
-
 } else {
 
     // Step 3: Now we have a bot registered and we can start up.
 
     var USER_ID  = process.argv[3];
     var BOT_ID = process.argv[4];
+    var FROM_GROUP = process.argv[5];
+    var TO_GROUP = process.argv[6];
 
 
 
@@ -122,7 +110,7 @@ if (process.argv.length == 3) {
     
 
     // This waits for the IncomingStream to complete its handshake and start listening.
-    // We then get the bot id of a specific bot.
+    // We then get the group_id for the bot.
     incoming.on('connected', function() {
         console.log("[IncomingStream 'connected']");
 
@@ -140,7 +128,7 @@ if (process.argv.length == 3) {
     });
 
     // This waits for messages coming in from the IncomingStream
-    // If the message contains @BOT, we parrot the message back.
+    // The message is sent to the message processor for analysis
     incoming.on('message', function(message) {
         if(typeof message.data !== "undefined" && message != null){
             
@@ -176,6 +164,7 @@ if (process.argv.length == 3) {
     // This starts the connection process for the IncomingStream
     incoming.connect();
     
+
     // Refresh Stream
     setInterval(function() {
         // This starts the connection process for the IncomingStream
@@ -184,4 +173,22 @@ if (process.argv.length == 3) {
     }, 5 * 60 * 1000);
     
 
+    // Schedule Roster Transfer
+    var rule = new Schedule.RecurrenceRule();
+        rule.dayOfWeek = 5;
+        rule.hour = 17;
+        rule.minute = 0;
+
+
+    var j = Schedule.scheduleJob(rule, function(){
+        Membership.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
+            if(!error && response){
+                console.log("\033[94mRoster Transferred\033[0m");
+                console.log(response);
+            } else {
+                console.log("\033[1;31mRoster Transfer Failed\033[0m");
+                console.log(error);
+            }
+        });
+    });
 }

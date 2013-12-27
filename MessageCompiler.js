@@ -512,17 +512,19 @@ MessageCompiler.getMessages = function(ACCESS_TOKEN, GROUP_ID, callback) {
 /**
  * Run compiler from command line.
  */
-MessageCompiler.getMessages(ACCESS_TOKEN, GROUP_ID, function(error, response){
-    if(!error || error.length == 0){
-        console.log("Success");
-        console.log(response);
-        process.exit(code = 0);
-    }else{
-        console.log("Failure");
-        console.log(error);
-        process.exit(code = 1);
-    }
-});
+if(require.main === module){
+	MessageCompiler.getMessages(ACCESS_TOKEN, GROUP_ID, function(error, response){
+	    if(!error || error.length == 0){
+	        console.log("Success");
+	        console.log(response);
+	        process.exit(code = 0);
+	    }else{
+	        console.log("Failure");
+	        console.log(error);
+	        process.exit(code = 1);
+	    }
+	});
+}
 
 
 /**

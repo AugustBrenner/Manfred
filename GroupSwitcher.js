@@ -139,7 +139,6 @@ TransferMembers.prototype.gatherRoster = function(groupID, callback) {
 				callback(null, response.members);
 			} else {
 				callback("Group Show Error");
-				console.log("Group Show Error");
 			}
 		}
 	);
@@ -337,18 +336,19 @@ GroupSwitcher.transferMembers = function(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, cal
 /**
  * Tranfer members from the command line.
  */
-GroupSwitcher.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
-    if(!error || error.length == 0){
-        console.log("\033[92mSuccess\033[0m");
-        console.log(response);
-        process.exit(code = 0);
-    }else{
-        console.log("\033[1;31mFailure\033[0m");
-        console.log(error);
-        process.exit(code = 1);
-    }
-});
-
+if(require.main === module){
+	GroupSwitcher.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
+	    if(!error || error.length == 0){
+	        console.log("\033[92mSuccess\033[0m");
+	        console.log(response);
+	        process.exit(code = 0);
+	    }else{
+	        console.log("\033[1;31mFailure\033[0m");
+	        console.log(error);
+	        process.exit(code = 1);
+	    }
+	});
+}
 
 /**
  * Export functions to be used by node.
