@@ -1,35 +1,24 @@
 
-/**
- * Module dependencies.
- */
+/************************************************************************
+ * External Dependencies 
+ ***********************************************************************/
+
 var GroupMe 		= require('groupme');
 var API 			= GroupMe.Stateless;
 
-
-/**
- * Command line arguments. 
- */
-var ACCESS_TOKEN 	= process.argv[2];
-var FROM_GROUP 		= process.argv[3];
-var TO_GROUP 		= process.argv[4];
+/************************************************************************
+ * Membership Managing Functions
+ ***********************************************************************/
 
 
 /**
- * Prepare functions for export. 
- */
-GroupSwitcher               	= {};
-GroupSwitcher.transferMembers   = {};
-GroupSwitcher.bindMembership	= {};
-
-
-/**
- * TransferMembers function
+ * Memberships function
  *
  * Stored Access_Token value for use by prototype functions
  *
  * ACCESS_TOKEN		- String, personal access token for GroupMe API
  */
-var TransferMembers = function(ACCESS_TOKEN) {
+var Memberships = function(ACCESS_TOKEN) {
 	this.accessToken = ACCESS_TOKEN;
 }
 
@@ -43,7 +32,7 @@ var TransferMembers = function(ACCESS_TOKEN) {
  * toGroup 			- String, ID for the group where members are to be transfered to
  * callback 		- callback, returns errors and responses while transfering members
  */
-TransferMembers.prototype.transferMembers = function(fromGroup, toGroup, callback){
+Memberships.prototype.transferMembers = function(fromGroup, toGroup, callback){
 	// Maintain Scope
 	var self = this;
 
@@ -54,7 +43,7 @@ TransferMembers.prototype.transferMembers = function(fromGroup, toGroup, callbac
 			
 			// Add Unique Members
 			self.addMembers(uniqueMembers, toGroup, function(error, response){
-				if (!error && response) {
+				if (!error || error.length == 0 && response) {
 					callback(null, response);
 				} else {
 					callback(error);
@@ -77,7 +66,7 @@ TransferMembers.prototype.transferMembers = function(fromGroup, toGroup, callbac
  * toGroup 			- String, ID for the group where members are to be transfered to
  * callback 		- callback, returns all unique member groups, along with any errors
  */
-TransferMembers.prototype.getMembers = function(fromGroup, toGroup, callback) {
+Memberships.prototype.getMembers = function(fromGroup, toGroup, callback) {
 	// Maintain Scope
 	var self 			= this;
 
@@ -93,7 +82,7 @@ TransferMembers.prototype.getMembers = function(fromGroup, toGroup, callback) {
 
 	// Gather Roster And Return Unique Member Groups
 	this.gatherRoster(fromGroup, function(error, response) {
-		if (!error && response) {
+		if (!error || error.length == 0 && response) {
 			fromMemberList = response;
 		} else {
 			errors.push(error);
@@ -105,7 +94,7 @@ TransferMembers.prototype.getMembers = function(fromGroup, toGroup, callback) {
 	});
 
 	this.gatherRoster(toGroup, function(error, response) {
-		if (!error && response) {
+		if (!error || error.length == 0 && response) {
 			toMemberList = response;
 		} else {
 			errors.push(error);
@@ -126,7 +115,7 @@ TransferMembers.prototype.getMembers = function(fromGroup, toGroup, callback) {
  * groupID			- String, ID for the group whose members are to be retrieved
  * callback 		- callback, returns all members from group with groupID along with any errors
  */
-TransferMembers.prototype.gatherRoster = function(groupID, callback) {
+Memberships.prototype.gatherRoster = function(groupID, callback) {
 	// Maintain Scope
 	var self = this;
 
@@ -135,7 +124,7 @@ TransferMembers.prototype.gatherRoster = function(groupID, callback) {
 		self.accessToken,
 		groupID,
 		function(error, response) {
-			if (!error && response) {
+			if (!error || error.length == 0 && response) {
 				callback(null, response.members);
 			} else {
 				callback("Group Show Error");
@@ -156,7 +145,7 @@ TransferMembers.prototype.gatherRoster = function(groupID, callback) {
  * return 			: Dictionary, containing arrays of inner and outer unique members
  */
 // Call only after populating list of old and new members
-TransferMembers.prototype.memberGroups = function(fromGroup, toGroup) {
+Memberships.prototype.memberGroups = function(fromGroup, toGroup) {
 	if ( fromGroup != null && toGroup != null){	
 	
 		// Member Lists
@@ -234,7 +223,7 @@ TransferMembers.prototype.memberGroups = function(fromGroup, toGroup) {
  * groupID 			- String, ID for the group where members are to be added to
  * callback 		- callback, returns any errors or responses from the request
  */
-TransferMembers.prototype.addMembers = function(memberList, groupID, callback){
+Memberships.prototype.addMembers = function(memberList, groupID, callback){
 	// Maintain Scope
 	var self = this;
 
@@ -251,7 +240,7 @@ TransferMembers.prototype.addMembers = function(memberList, groupID, callback){
 			groupID,
 			output,
 			function(error, response) {
-				if(!error && response) {
+				if(!error || error.length == 0 && response) {
 					callback(null, "Members Added");
 				} else {
 					callback("Member Add Error");
@@ -267,7 +256,6 @@ TransferMembers.prototype.addMembers = function(memberList, groupID, callback){
 
 
 
-// TODO: finish the API call once worked out with GroupMe API support
 /**
  * removeMembers function
  *
@@ -277,54 +265,86 @@ TransferMembers.prototype.addMembers = function(memberList, groupID, callback){
  * groupID 			- String, ID for the group where members are to be removed from
  * callback 		- callback, returns any errors or responses from the request
  */
-
- /*
-TransferMembers.prototype.removeMembers = function(memberList, groupID, callback){
+Memberships.prototype.removeMembers = function(memberList, groupID, callback){
 	// Maintain Scope
 	var self = this;
 
-	// Check for Members
-	if(memberList.length > 0){
-		
-		var output = {};
-		output['members'] = memberList;
-
+	// removeCall function to maintain object scope
+	var removeCall = function(memberObject, callback){
+		// API call to remove the member
 		API.Members.remove(
 			self.accessToken,
 			groupID,
-			output,
+			memberObject.id,
 			function(error, response) {
-				if(!error && response) {
-					Console.log("Members Deleted");
-					callback(null, "Members Deleted");
+				if(!error || error.length == 0 && response) {
+					Console.log("\033[93m"+ memberObject.name + "Deleted (id: " + memberObject.id + ", user_id: " + memberObject.user_id + ")\033[0m");
+					callback(null, memberObject);
 				} else {
-					console.log("Member Delete Error");
 					callback("Member Delete Error");
 				}
 			}
 		);
+	}
+	// Check for Members
+	if(memberList.length > 0){
+		
+		// Loop through every member
+		var callbackCount	= 0;
+		var errors 			= [];
+		var responses 		= [];
+
+		for(member in memberList){
+			callbackCount++;
+			removeCall(member, function(error, response){
+				if(!error || error.length == 0 && response) {
+					responses.push(response);
+				} else {
+					errors.push(error);
+				}
+				if(callbackCount == 0){
+					callback(errors, responses);
+				}	
+			});
+		}
 	} else {
 		callback("Delete List Empty");
 	}
 }
 
-*/
+/************************************************************************
+ * Utilities Containers
+ ***********************************************************************/
+
+// All the functions take the form function(options,callback);
+// and all callbacks take the form function(err,returnval);
+MembershipUtilities               	= {};
+MembershipUtilities.transferMembers = {};
+MembershipUtilities.bindMembership	= {};
+MembershipUtilities.addMembers		= {};
+MembershipUtilities.removeMembers	= {};
+MembershipUtilities.blockMembers	= {};
+
+
+/************************************************************************
+ * Exported Utility Functions
+ ***********************************************************************/
 
 
 /**
- * GroupSwitcher transferMembers method
+ * MembershipUtilities transferMembers method
  *
- * Exported method to run transferMessages prototype function of TransferMembers function
+ * Exported method to run transferMessages prototype function of Memberships function
  *
  * ACCESS_TOKEN		- String, personal access token for GroupMe API
  * fromGroup		- String, ID for the group where members are to be transfered from
  * toGroup 			- String, ID for the group where members are to be transfered to
  * callback 		- callback, returns errors and responses from transferring members
  */
-GroupSwitcher.transferMembers = function(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, callback) {
-	var transferMembers = new TransferMembers(ACCESS_TOKEN);
+MembershipUtilities.transferMembers = function(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, callback) {
+	var transferMembers = new Memberships(ACCESS_TOKEN);
 	transferMembers.transferMembers(FROM_GROUP, TO_GROUP, function(error, response){
-		if(!error && response){
+		if(!error || error.length == 0 && response){
 			callback(null, response);
 		} else {
 			callback(error);
@@ -334,10 +354,68 @@ GroupSwitcher.transferMembers = function(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, cal
 
 
 /**
+ * AddMembers function
+ *
+ * Sends a POST request to GroupMe API adding all members from memberList to the specified group
+ *
+ * ACCESS_TOKEN		- String, personal access token for GroupMe API
+ * memberList		- Array, containg IDs of members to be added to the group
+ * groupID 			- String, ID for the group where members are to be added to
+ * callback 		- callback, returns any errors or responses from the request
+ */
+MembershipUtilities.addMembers = function(ACCESS_TOKEN, member_list, group_ID, callback) {
+	var transferMembers = new Memberships(ACCESS_TOKEN);
+	transferMembers.addMembers(member_list, group_ID, function(error, response){
+		if(!error || error.length == 0 && response){
+			callback(null, response);
+		} else {
+			callback(error);
+		}
+	});	
+}
+
+
+/**
+ * removeMembers function
+ *
+ * Sends a POST request to GroupMe API for each member to be removed from the specified group
+ *
+ * ACCESS_TOKEN		- String, personal access token for GroupMe API
+ * memberList		- Array, containg IDs of members to be removed to the group
+ * groupID 			- String, ID for the group where members are to be removed from
+ * callback 		- callback, returns any errors or responses from the request
+ */
+MembershipUtilities.removeMembers = function(ACCESS_TOKEN, member_list, group_ID, callback) {
+	var transferMembers = new Memberships(ACCESS_TOKEN);
+	transferMembers.removeMembers(member_list, group_ID, function(error, response){
+		if(!error || error.length == 0 && response){
+			callback(null, response);
+		} else {
+			callback(error);
+		}
+	});	
+}
+
+
+
+/************************************************************************
+ * Run from the command line
+ ***********************************************************************/
+
+
+/**
+ * Command line arguments. 
+ */
+var ACCESS_TOKEN 	= process.argv[2];
+var FROM_GROUP 		= process.argv[3];
+var TO_GROUP 		= process.argv[4];
+
+
+/**
  * Tranfer members from the command line.
  */
 if(require.main === module){
-	GroupSwitcher.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
+	MembershipUtilities.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
 	    if(!error || error.length == 0){
 	        console.log("\033[92mSuccess\033[0m");
 	        console.log(response);
@@ -353,4 +431,4 @@ if(require.main === module){
 /**
  * Export functions to be used by node.
  */
-module.exports = GroupSwitcher;
+module.exports = MembershipUtilities;
