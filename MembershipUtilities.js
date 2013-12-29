@@ -48,13 +48,81 @@ Memberships.prototype.transferMembers = function(fromGroup, toGroup, callback){
 				} else {
 					callback(error);
 				}	
-					});
+			});
 		} else{
 			callback(error);
 		}
 	});
 }
 
+
+Memberships.prototype.bindMembers = function(fromGroup, fromInclusive, toGroup, toInclusive, callback){
+	// Maintain Scope
+	var self = this;
+
+	// Callbacks
+	var errors = [];
+	var responses = [];
+
+	// Function Modifies Specified Rosters
+	var modifyRosters = function(memberGroups){
+
+		var add = function(list, group){	
+			// Add Members to fromGroup
+			self.addMembers(list, group, function(error, response){
+				if (!error || error.length == 0 && response) {
+					responses.push(response);
+				} else {
+					errors.push(error);
+				}
+				callbackCount--;	
+				if(callbackCount == 0){
+					callback(errors, responses);
+				}
+			});
+		}
+
+		var remove = function(list, group){
+
+			// Add Members to fromGroup
+			self.removeMembers(list, group, function(error, response){
+				if (!error || error.length == 0 && response) {
+					responses.push(response);
+				} else {
+					errors.push(error);
+				}	
+				callbackCount--;
+				if(callbackCount == 0){
+					callback(errors, responses);
+				}
+			});		
+		}
+
+		var callbackCount = 0;
+
+		if(!fromInclusive){
+			callbackCount++;
+			remove(memberGroups['fromDeleteList'], fromGroup);
+		} else if(!toInclusive) {
+			callbackCount++;
+			remove(memberGroups['toDeleteList'], toGroup);
+		} else {
+			callbackCount = 2;
+			add(memberGroups['fromAddList'], fromGroup);
+			add(memberGroups['toAddList'], toGroup);
+		}
+	}
+
+
+	// Gather Members lists
+	this.getMembers(fromGroup, toGroup, function(error, response){
+		if (!error || error.length == 0 && response){
+			modifyRosters(response);
+		} else {
+			callback(error);
+		}
+	});
+}
 
 
 /**
@@ -278,7 +346,7 @@ Memberships.prototype.removeMembers = function(memberList, groupID, callback){
 			memberObject.id,
 			function(error, response) {
 				if(!error || error.length == 0 && response) {
-					Console.log("\033[93m"+ memberObject.name + "Deleted (id: " + memberObject.id + ", user_id: " + memberObject.user_id + ")\033[0m");
+					console.log("\033[93m"+ memberObject.name + " Deleted (id: " + memberObject.id + ", user_id: " + memberObject.user_id + ")\033[0m");
 					callback(null, memberObject);
 				} else {
 					callback("Member Delete Error");
@@ -294,14 +362,15 @@ Memberships.prototype.removeMembers = function(memberList, groupID, callback){
 		var errors 			= [];
 		var responses 		= [];
 
-		for(member in memberList){
+		for(var i = 0, len = memberList.length; i < len; i++){
 			callbackCount++;
-			removeCall(member, function(error, response){
+			removeCall(memberList[i], function(error, response){
 				if(!error || error.length == 0 && response) {
 					responses.push(response);
 				} else {
 					errors.push(error);
 				}
+				callbackCount--;
 				if(callbackCount == 0){
 					callback(errors, responses);
 				}	
@@ -320,7 +389,7 @@ Memberships.prototype.removeMembers = function(memberList, groupID, callback){
 // and all callbacks take the form function(err,returnval);
 MembershipUtilities               	= {};
 MembershipUtilities.transferMembers = {};
-MembershipUtilities.bindMembership	= {};
+MembershipUtilities.bindMembers		= {};
 MembershipUtilities.addMembers		= {};
 MembershipUtilities.removeMembers	= {};
 MembershipUtilities.blockMembers	= {};
@@ -337,13 +406,39 @@ MembershipUtilities.blockMembers	= {};
  * Exported method to run transferMessages prototype function of Memberships function
  *
  * ACCESS_TOKEN		- String, personal access token for GroupMe API
- * fromGroup		- String, ID for the group where members are to be transfered from
- * toGroup 			- String, ID for the group where members are to be transfered to
+ * FROM_GROUP		- String, ID for the group where members are to be transfered from
+ * TO_GROUP 		- String, ID for the group where members are to be transfered to
  * callback 		- callback, returns errors and responses from transferring members
  */
 MembershipUtilities.transferMembers = function(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, callback) {
-	var transferMembers = new Memberships(ACCESS_TOKEN);
-	transferMembers.transferMembers(FROM_GROUP, TO_GROUP, function(error, response){
+	var memberships = new Memberships(ACCESS_TOKEN);
+	memberships.transferMembers(FROM_GROUP, TO_GROUP, function(error, response){
+		if(!error || error.length == 0 && response){
+			callback(null, response);
+		} else {
+			callback(error);
+		}
+	});
+}
+
+
+/**
+ * MembershipUtilities bindMembers method
+ *
+ * inclusively or exclusively bind membership of two groups
+ *
+ * ACCESS_TOKEN		- String, personal access token for GroupMe API
+ * FROM_GROUP		- String, ID for the group where members are to be transfered from
+ * F_INCLUSIVE		- Boolean, 	true	- Adds Members to FROM_GROUP from TO_GROUP until rosters match
+ *								false 	- Removes Members from FROM_GROUP until rosters match	
+ * TO_GROUP 		- String, ID for the group where members are to be transfered to
+ * T_INCLUSIVE		- Boolean, 	true	- Adds Members to TO_GROUP from TO_GROUP until rosters match
+ *								false 	- Removes Members from TO_GROUP until rosters match
+ * callback 		- callback, returns errors and responses from transferring members
+ */
+MembershipUtilities.bindMembers = function(ACCESS_TOKEN, FROM_GROUP, F_INCLUSIVE, TO_GROUP, T_INCLUSIVE, callback) {
+	var memberships = new Memberships(ACCESS_TOKEN);
+	memberships.bindMembers(FROM_GROUP, F_INCLUSIVE, TO_GROUP, T_INCLUSIVE, function(error, response){
 		if(!error || error.length == 0 && response){
 			callback(null, response);
 		} else {
@@ -364,8 +459,8 @@ MembershipUtilities.transferMembers = function(ACCESS_TOKEN, FROM_GROUP, TO_GROU
  * callback 		- callback, returns any errors or responses from the request
  */
 MembershipUtilities.addMembers = function(ACCESS_TOKEN, member_list, group_ID, callback) {
-	var transferMembers = new Memberships(ACCESS_TOKEN);
-	transferMembers.addMembers(member_list, group_ID, function(error, response){
+	var memberships = new Memberships(ACCESS_TOKEN);
+	memberships.addMembers(member_list, group_ID, function(error, response){
 		if(!error || error.length == 0 && response){
 			callback(null, response);
 		} else {
@@ -386,8 +481,8 @@ MembershipUtilities.addMembers = function(ACCESS_TOKEN, member_list, group_ID, c
  * callback 		- callback, returns any errors or responses from the request
  */
 MembershipUtilities.removeMembers = function(ACCESS_TOKEN, member_list, group_ID, callback) {
-	var transferMembers = new Memberships(ACCESS_TOKEN);
-	transferMembers.removeMembers(member_list, group_ID, function(error, response){
+	var memberships = new Memberships(ACCESS_TOKEN);
+	memberships.removeMembers(member_list, group_ID, function(error, response){
 		if(!error || error.length == 0 && response){
 			callback(null, response);
 		} else {
@@ -396,37 +491,6 @@ MembershipUtilities.removeMembers = function(ACCESS_TOKEN, member_list, group_ID
 	});	
 }
 
-
-
-/************************************************************************
- * Run from the command line
- ***********************************************************************/
-
-
-/**
- * Command line arguments. 
- */
-var ACCESS_TOKEN 	= process.argv[2];
-var FROM_GROUP 		= process.argv[3];
-var TO_GROUP 		= process.argv[4];
-
-
-/**
- * Tranfer members from the command line.
- */
-if(require.main === module){
-	MembershipUtilities.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
-	    if(!error || error.length == 0){
-	        console.log("\033[92mSuccess\033[0m");
-	        console.log(response);
-	        process.exit(code = 0);
-	    }else{
-	        console.log("\033[1;31mFailure\033[0m");
-	        console.log(error);
-	        process.exit(code = 1);
-	    }
-	});
-}
 
 /**
  * Export functions to be used by node.
