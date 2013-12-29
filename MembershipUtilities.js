@@ -5,6 +5,8 @@
 
 var GroupMe 		= require('groupme');
 var API 			= GroupMe.Stateless;
+var mongojs 		= require('mongojs');
+var Compiler   		= require('./MessageCompiler');
 
 /************************************************************************
  * Membership Managing Functions
@@ -18,8 +20,25 @@ var API 			= GroupMe.Stateless;
  *
  * ACCESS_TOKEN		- String, personal access token for GroupMe API
  */
-var Memberships = function(ACCESS_TOKEN) {
+var Memberships = function(ACCESS_TOKEN, DATABASE_URL) {
+	
+	// Set Access Token
 	this.accessToken = ACCESS_TOKEN;
+
+	// Connect to Database if Passed DATABASE_URL
+	if(DATABASE_URL){
+		this.databaseURL = DATABASE_URL;
+		
+		// Set Database Collections
+		var collections = [
+		    "Group" + this.groupID + "Messages", 
+		    "Group" + this.groupID + "BlockList", 
+		    "Group" + this.groupID + "PendingRemoval"
+		];
+
+		// Connect to Database    
+	    this.db = mongojs.connect(this.databaseURL, collections);
+	}
 }
 
 
@@ -123,6 +142,112 @@ Memberships.prototype.bindMembers = function(fromGroup, fromInclusive, toGroup, 
 		}
 	});
 }
+
+
+/**
+ * AddMembers function
+ *
+ * Sends a POST request to GroupMe API adding all members from memberList to the specified group
+ *
+ * memberList		- Array, containg IDs of members to be added to the group
+ * groupID 			- String, ID for the group where members are to be added to
+ * callback 		- callback, returns any errors or responses from the request
+ */
+Memberships.prototype.addMembers = function(memberList, groupID, callback){
+	// Maintain Scope
+	var self = this;
+
+	// Check for Members
+	if(memberList.length > 0){
+		
+		// Create Key Value Object
+		var output = {};
+		output['members'] = memberList;
+
+		// Make API Call
+		API.Members.add(
+			self.accessToken,
+			groupID,
+			output,
+			function(error, response) {
+				if(!error || error.length == 0 && response) {
+					callback(null, "Members Added");
+				} else {
+					callback("Member Add Error");
+				}
+			}
+		);
+	} else {
+		callback("Add List Empty");
+	}
+}
+
+
+
+
+
+/**
+ * removeMembers function
+ *
+ * Sends a POST request to GroupMe API for each member to be removed from the specified group
+ *
+ * memberList		- Array, containg IDs of members to be removed to the group
+ * groupID 			- String, ID for the group where members are to be removed from
+ * callback 		- callback, returns any errors or responses from the request
+ */
+Memberships.prototype.removeMembers = function(memberList, groupID, callback){
+	// Maintain Scope
+	var self = this;
+
+	// removeCall function to maintain object scope
+	var removeCall = function(memberObject, callback){
+		// API call to remove the member
+		API.Members.remove(
+			self.accessToken,
+			groupID,
+			memberObject.id,
+			function(error, response) {
+				if(!error || error.length == 0 && response) {
+					console.log("\033[93m"+ memberObject.name + " Deleted (id: " + memberObject.id + ", user_id: " + memberObject.user_id + ")\033[0m");
+					callback(null, memberObject);
+				} else {
+					callback("Member Delete Error");
+				}
+			}
+		);
+	}
+	// Check for Members
+	if(memberList.length > 0){
+		
+		// Loop through every member
+		var callbackCount	= 0;
+		var errors 			= [];
+		var responses 		= [];
+
+		for(var i = 0, len = memberList.length; i < len; i++){
+			callbackCount++;
+			removeCall(memberList[i], function(error, response){
+				if(!error || error.length == 0 && response) {
+					responses.push(response);
+				} else {
+					errors.push(error);
+				}
+				callbackCount--;
+				if(callbackCount == 0){
+					callback(errors, responses);
+				}	
+			});
+		}
+	} else {
+		callback("Delete List Empty");
+	}
+}
+
+
+
+/************************************************************************
+ * Helper Functions
+ ***********************************************************************/
 
 
 /**
@@ -282,104 +407,18 @@ Memberships.prototype.memberGroups = function(fromGroup, toGroup) {
 
 }
 
-/**
- * AddMembers function
- *
- * Sends a POST request to GroupMe API adding all members from memberList to the specified group
- *
- * memberList		- Array, containg IDs of members to be added to the group
- * groupID 			- String, ID for the group where members are to be added to
- * callback 		- callback, returns any errors or responses from the request
- */
-Memberships.prototype.addMembers = function(memberList, groupID, callback){
-	// Maintain Scope
-	var self = this;
 
-	// Check for Members
-	if(memberList.length > 0){
-		
-		// Create Key Value Object
-		var output = {};
-		output['members'] = memberList;
+Memberships.prototype.compileMessages = function(groupID, callback){
 
-		// Make API Call
-		API.Members.add(
-			self.accessToken,
-			groupID,
-			output,
-			function(error, response) {
-				if(!error || error.length == 0 && response) {
-					callback(null, "Members Added");
-				} else {
-					callback("Member Add Error");
-				}
-			}
-		);
-	} else {
-		callback("Add List Empty");
-	}
-}
-
-
-
-
-
-/**
- * removeMembers function
- *
- * Sends a POST request to GroupMe API for each member to be removed from the specified group
- *
- * memberList		- Array, containg IDs of members to be removed to the group
- * groupID 			- String, ID for the group where members are to be removed from
- * callback 		- callback, returns any errors or responses from the request
- */
-Memberships.prototype.removeMembers = function(memberList, groupID, callback){
-	// Maintain Scope
-	var self = this;
-
-	// removeCall function to maintain object scope
-	var removeCall = function(memberObject, callback){
-		// API call to remove the member
-		API.Members.remove(
-			self.accessToken,
-			groupID,
-			memberObject.id,
-			function(error, response) {
-				if(!error || error.length == 0 && response) {
-					console.log("\033[93m"+ memberObject.name + " Deleted (id: " + memberObject.id + ", user_id: " + memberObject.user_id + ")\033[0m");
-					callback(null, memberObject);
-				} else {
-					callback("Member Delete Error");
-				}
-			}
-		);
-	}
-	// Check for Members
-	if(memberList.length > 0){
-		
-		// Loop through every member
-		var callbackCount	= 0;
-		var errors 			= [];
-		var responses 		= [];
-
-		for(var i = 0, len = memberList.length; i < len; i++){
-			callbackCount++;
-			removeCall(memberList[i], function(error, response){
-				if(!error || error.length == 0 && response) {
-					responses.push(response);
-				} else {
-					errors.push(error);
-				}
-				callbackCount--;
-				if(callbackCount == 0){
-					callback(errors, responses);
-				}	
-			});
+	Compiler.getMessages(this.accessToken, groupID, this.databaseURL, function(error, response){
+		if (!error || error.length == 0 && response) {
+			callback(null, response);
+		} else {
+			callback(error);
 		}
-	} else {
-		callback("Delete List Empty");
-	}
+	});
 }
+
 
 /************************************************************************
  * Utilities Containers
@@ -388,11 +427,6 @@ Memberships.prototype.removeMembers = function(memberList, groupID, callback){
 // All the functions take the form function(options,callback);
 // and all callbacks take the form function(err,returnval);
 MembershipUtilities               	= {};
-MembershipUtilities.transferMembers = {};
-MembershipUtilities.bindMembers		= {};
-MembershipUtilities.addMembers		= {};
-MembershipUtilities.removeMembers	= {};
-MembershipUtilities.blockMembers	= {};
 
 
 /************************************************************************
@@ -492,7 +526,20 @@ MembershipUtilities.removeMembers = function(ACCESS_TOKEN, member_list, group_ID
 }
 
 
-/**
- * Export functions to be used by node.
- */
+MembershipUtilities.compileMessages = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL, callback) {
+	var memberships = new Memberships(ACCESS_TOKEN, DATABASE_URL);
+	memberships.compileMessages(GROUP_ID, function(error, response){
+		if(!error || error.length == 0 && response){
+			callback(null, response);
+		} else {
+			callback(error);
+		}
+	});
+}
+
+
+/************************************************************************
+ * Export Functions to be Used by Node.
+ ***********************************************************************/
+
 module.exports = MembershipUtilities;

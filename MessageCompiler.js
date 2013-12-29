@@ -1,25 +1,16 @@
-/**
- * Module dependencies.
- */
-var GroupMe = require('groupme');
-var API = require('groupme').Stateless;
-var mongojs = require('mongojs');
+/************************************************************************
+ * External Dependencies 
+ ***********************************************************************/
+
+var GroupMe 	= require('groupme');
+var API 		= require('groupme').Stateless;
+var mongojs 	= require('mongojs');
 
 
-/**
- * Command line arguments. 
- */
-var ACCESS_TOKEN = process.argv[2];
-var GROUP_ID = process.argv[3];
-//var DATABASE_URL = process.argv[4];
-var DATABASE_URL = 'localhost:27017/Manfred';
+/************************************************************************
+ * Message Compiler Functions
+ ***********************************************************************/
 
-
-/**
- * Prepare functions for export. 
- */
-MessageCompiler               = {};
-MessageCompiler.getMessages   = {};
 
 /**
  * GetMessages Class
@@ -30,7 +21,7 @@ MessageCompiler.getMessages   = {};
  * ACCESS_TOKEN		- String, personal access token for GroupMe API
  * group_id 		- String, the ID number of the group we are accessing
  */
-var GetMessages = function(ACCESS_TOKEN, groupID){
+var GetMessages = function(ACCESS_TOKEN, groupID, DATABASE_URL){
     this.groupID = groupID;
     this.accessToken = ACCESS_TOKEN;
     this.lowerBound;
@@ -486,6 +477,18 @@ GetMessages.prototype.databaseInsert = function(messages, callback) {
 }
 
 
+/************************************************************************
+ * Utilities Containers
+ ***********************************************************************/
+
+// All the functions take the form function(options,callback);
+// and all callbacks take the form function(err,returnval);
+MessageCompiler               = {};
+
+
+/************************************************************************
+ * Exported Utility Functions
+ ***********************************************************************/
 
 
 /**
@@ -497,8 +500,8 @@ GetMessages.prototype.databaseInsert = function(messages, callback) {
  * group_id 		- String, the ID number of the group we are accessing
  * callback 		- callback, returns errors and responses from retrieving and storing message data
  */
-MessageCompiler.getMessages = function(ACCESS_TOKEN, GROUP_ID, callback) {
-    var getMessages = new GetMessages(ACCESS_TOKEN, GROUP_ID);
+MessageCompiler.getMessages = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL, callback) {
+    var getMessages = new GetMessages(ACCESS_TOKEN, GROUP_ID, DATABASE_URL);
     getMessages.retrieveAll(function(error, response){
         if(!error || error.length == 0){
             callback(null, response);
@@ -507,6 +510,25 @@ MessageCompiler.getMessages = function(ACCESS_TOKEN, GROUP_ID, callback) {
         }
     });
 }
+
+
+/************************************************************************
+ * Export Functions to be Used by Node.
+ ***********************************************************************/
+ 
+module.exports = MessageCompiler;
+
+
+/************************************************************************
+ * Command Line Interface
+ ***********************************************************************/
+
+/**
+ * Command line arguments. 
+ */
+var ACCESS_TOKEN 	= process.argv[2];
+var GROUP_ID 		= process.argv[3];
+var DATABASE_URL = process.argv[4];
 
 
 /**
@@ -525,9 +547,3 @@ if(require.main === module){
 	    }
 	});
 }
-
-
-/**
- * Export functions to be used by node.
- */
-module.exports = MessageCompiler;
