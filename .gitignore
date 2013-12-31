@@ -4,7 +4,10 @@ node_modules/*
 !node_modules/groupme/
 
 node_modules/groupme/*
-!node_modules/groupme/Stateless.js
+!node_modules/groupme/lib/
+
+node_modules/groupme/lib/*
+!node_modules/groupme/lib/Stateless.js
 
 
 data
