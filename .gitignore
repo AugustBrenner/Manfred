@@ -1,5 +1,5 @@
 node_modules/*
-!groupme
+!node_modules/groupme/
 
 node_modules/groupme/*
 !node_modules/groupme/Stateless.js
