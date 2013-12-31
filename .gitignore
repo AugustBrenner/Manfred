@@ -1,4 +1,10 @@
-node_modules
+node_modules/*
+!groupme
+
+node_modules/groupme/*
+!node_modules/groupme/Stateless.js
+
+
 data
 drafts
 archive
