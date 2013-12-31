@@ -19,10 +19,13 @@ var mongojs 	= require('mongojs');
  * group and connects to the database.
  * 
  * ACCESS_TOKEN		- String, personal access token for GroupMe API
- * group_id 		- String, the ID number of the group we are accessing
+ * GROUP_ID 		- String, the ID number of the group we are accessing
+ * DATABASE_URL		- String, the URL to the database for persistant storage
  */
-var GetMessages = function(ACCESS_TOKEN, groupID, DATABASE_URL){
-    this.groupID = groupID;
+var GetMessages = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL){
+
+	// Instantiate Instance Variables
+    this.groupID = GROUP_ID;
     this.accessToken = ACCESS_TOKEN;
     this.lowerBound;
     this.upperBound;
@@ -535,7 +538,7 @@ var DATABASE_URL = process.argv[4];
  * Run compiler from command line.
  */
 if(require.main === module){
-	MessageCompiler.getMessages(ACCESS_TOKEN, GROUP_ID, function(error, response){
+	MessageCompiler.getMessages(ACCESS_TOKEN, GROUP_ID, DATABASE_URL, function(error, response){
 	    if(!error || error.length == 0){
 	        console.log("Success");
 	        console.log(response);
