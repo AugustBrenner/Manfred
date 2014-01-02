@@ -6,7 +6,6 @@
 var GroupMe 		= require('groupme');
 var API 			= GroupMe.Stateless;
 var mongojs 		= require('mongojs');
-var Compiler   		= require('./MessageCompiler');
 
 /************************************************************************
  * Membership Managing Functions
@@ -20,25 +19,10 @@ var Compiler   		= require('./MessageCompiler');
  *
  * ACCESS_TOKEN		- String, personal access token for GroupMe API
  */
-var Memberships = function(ACCESS_TOKEN, DATABASE_URL) {
+var Memberships = function(ACCESS_TOKEN) {
 	
 	// Set Access Token
 	this.accessToken = ACCESS_TOKEN;
-
-	// Connect to Database if Passed DATABASE_URL
-	if(DATABASE_URL){
-		this.databaseURL = DATABASE_URL;
-		
-		// Set Database Collections
-		var collections = [
-		    "Group" + this.groupID + "Messages", 
-		    "Group" + this.groupID + "BlockList", 
-		    "Group" + this.groupID + "PendingRemoval"
-		];
-
-		// Connect to Database    
-	    this.db = mongojs.connect(this.databaseURL, collections);
-	}
 }
 
 
@@ -75,6 +59,19 @@ Memberships.prototype.transferMembers = function(fromGroup, toGroup, callback){
 }
 
 
+/**
+ * bindMembers function
+ *
+ * inclusively or exclusively bind membership of two groups
+ *
+ * fromGroup		- String, ID for the group where members are to be transfered from
+ * fromInclusive	- Boolean, 	true	- Adds Members to fromGroup from toGroup until rosters match
+ *								false 	- Removes Members from fromGroup until rosters match	
+ * toGroup 			- String, ID for the group where members are to be transfered to
+ * toInclusive		- Boolean, 	true	- Adds Members to toGroup from toGroup until rosters match
+ *								false 	- Removes Members from toGroup until rosters match
+ * callback 		- callback, returns errors and responses from transferring members
+ */
 Memberships.prototype.bindMembers = function(fromGroup, fromInclusive, toGroup, toInclusive, callback){
 	// Maintain Scope
 	var self = this;
@@ -224,7 +221,15 @@ Memberships.prototype.removeMembers = function(memberList, groupID, callback){
 }
 
 
-
+/**
+ * directMessageMembers function
+ *
+ * Sends a POST request to GroupMe API to Direct Message to each member of the memberList
+ *
+ * memberList		- Array, containg user_ids of members to be removed to the group
+ * message 			- String, containg the message to be sent to each user
+ * callback 		- callback, returns any errors or responses from the request
+ */
 Memberships.prototype.directMessageMembers = function(memberList, message, callback){
 	// Maintain Scope
 	var self = this;
@@ -242,10 +247,10 @@ Memberships.prototype.directMessageMembers = function(memberList, message, callb
 			opts,
 			function(error, response) {
 				if(!error || error.length == 0 && response) {
-					console.log("\033[93m"+ memberObject.name + " Deleted (id: " + memberObject.id + ", user_id: " + memberObject.user_id + ")\033[0m");
+					console.log("\033[92mMessage Sent: \033[0m" + message);
 					callback(null, memberObject);
 				} else {
-					callback("Member Delete Error");
+					callback("Direct Message Error");
 				}
 			}
 		);
@@ -260,11 +265,22 @@ Memberships.prototype.directMessageMembers = function(memberList, message, callb
 	});
 }
 
+
+
 /************************************************************************
  * Helper Functions
  ***********************************************************************/
 
 
+/**
+ * forAll function
+ *
+ * Sends API calls for each member of a memberList
+ *
+ * memberList		- Array, containg IDs of members to be removed to the group
+ * asyncFunction 	- function, directly utilizes the API
+ * callback 		- callback, returns all errors and responses of the API calls
+ */
 Memberships.prototype.forAll = function(memberList, asyncFunction, callback){
 	
 	// Check for Members
@@ -461,18 +477,6 @@ Memberships.prototype.memberGroups = function(fromGroup, toGroup) {
 }
 
 
-Memberships.prototype.compileMessages = function(groupID, callback){
-
-	Compiler.getMessages(this.accessToken, groupID, this.databaseURL, function(error, response){
-		if (!error || error.length == 0 && response) {
-			callback(null, response);
-		} else {
-			callback(error);
-		}
-	});
-}
-
-
 /************************************************************************
  * Utilities Containers
  ***********************************************************************/
@@ -599,32 +603,6 @@ MembershipUtilities.directMessageMembers = function(ACCESS_TOKEN, MEMBER_LIST, M
 		}
 	});	
 }
-
-
-/**
- * compileMessages function
- *
- * Utilizes the MessageCompiler.js module to store the complete message history of a GroupMe
- * group into a mongoDB
- *
- * ACCESS_TOKEN		- String, personal access token for GroupMe API
- * MEMBER_LIST		- Array, containg IDs of members to be added to the group
- * GROUP_ID 		- String, ID for the group where members are to be added to
- * DATABASE_URL 	- String, URL of the database used to store message history
- * callback 		- callback, returns any errors or responses from the request
- */
-MembershipUtilities.compileMessages = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL, callback) {
-	var memberships = new Memberships(ACCESS_TOKEN, DATABASE_URL);
-	memberships.compileMessages(GROUP_ID, function(error, response){
-		if(!error || error.length == 0 && response){
-			callback(null, response);
-		} else {
-			callback(error);
-		}
-	});
-}
-
-
 
 
 /************************************************************************
