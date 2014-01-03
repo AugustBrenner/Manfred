@@ -256,7 +256,7 @@ Memberships.prototype.directMessageMembers = function(memberList, message, callb
 		);
 	}
 	
-	this.forAll(memberList, directMessage, function(error, response){
+	forAll(memberList, directMessage, function(error, response){
 		if(error || error.length == 0 && response){
 			callback(null, response);
 		} else {
