@@ -35,8 +35,6 @@ var History = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL) {
 		// Set Database Collections
 		var collections = [
 		    "Group" + this.groupID + "Messages", 
-		    "Group" + this.groupID + "BlockList", 
-		    "Group" + this.groupID + "PendingRemoval"
 		];
 
 		// Connect to Database    
@@ -81,25 +79,23 @@ var History = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL) {
 	}
 	this.count = function(callback){
 		this.isCount = true;
-		this.call(function(response){
+		this.call(function(error, response){
 			callback(error, response);
 		});
 	}
 	this.insert = function(callback){
 		this.isInsert = true;
-		this.call(function(response){
+		this.call(function(error, response){
 			callback(error, response);
 		});
 	}
 	this.remove = function(callback){
 		this.isRemove = true;
-		this.call(function(response){
+		this.call(function(error, response){
 			callback(error, response);
 		});
 	}
 }
-
-
 
 
 /**
@@ -112,8 +108,8 @@ var History = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL) {
  */
 History.prototype.compileMessages = function(callback){
 
-	Compiler.getMessages(this.accessToken, groupID, this.databaseURL, function(error, response){
-		callback(errors, response);
+	Compiler.getMessages(this.accessToken, this.groupID, this.databaseURL, function(error, response){
+		callback(error, response);
 	});
 }
 
@@ -272,13 +268,13 @@ var forAll = function(memberList, asyncFunction, callback){
  * converts a time object to seconds
  *
  * time			- Object, representing a time
- *					{seconds: 	int}
- *					{minutes: 	int}
- *					{hours: 	int}
- *					{days: 		int}
- *					{weeks: 	int}
- *					{months: 	int}
- *					{years: 	int}
+ *					{second: 	int,
+ *					 minute: 	int,
+ *					 hour: 		int,
+ *					 day: 		int,
+ *					 week: 		int,
+ *					 month: 	int,
+ *					 year: 		int}
  *
  * return 		:The value of the time object in seconds
  */
@@ -288,20 +284,20 @@ var toSeconds = function(time){
  	var seconds = 0
 
  	// Convert to Seconds
-	if(time.seconds && time.seconds > 0)
-		seconds += time.seconds;
-	if(time.minutes && time.minutes > 0)
-		seconds += (time.minutes * 60);
-	if(time.hours && time.hours > 0)
-		seconds += (time.hours * 60 * 60);
-	if(time.days && time.days > 0)
-		seconds += (time.days * 60 * 60 * 24);
-	if(time.weeks && time.weeks > 0)
-		seconds += (time.weeks * 60 * 60 * 24 * 7);
-	if(time.months && time.months > 0)
-		seconds += (time.months * 60 * 60 * 24 * 30);
-	if(time.years && time.years > 0)
-		seconds += (time.years * 60 * 60 * 24 * 365);
+	if(time.second && time.second > 0)
+		seconds += time.second;
+	if(time.minute && time.minute > 0)
+		seconds += (time.minute * 60);
+	if(time.hour && time.hour > 0)
+		seconds += (time.hour * 60 * 60);
+	if(time.day && time.day > 0)
+		seconds += (time.day * 60 * 60 * 24);
+	if(time.week && time.week > 0)
+		seconds += (time.week * 60 * 60 * 24 * 7);
+	if(time.month && time.month > 0)
+		seconds += (time.month * 60 * 60 * 24 * 30.4167);
+	if(time.year && time.year > 0)
+		seconds += (time.year * 60 * 60 * 24 * 365.25);
 
 	// Return Seconds
 	return seconds;
@@ -315,13 +311,26 @@ var toSeconds = function(time){
  ***********************************************************************/
 
 // All the functions take the form function(options,callback);
-// and all callbacks take the form function(err,returnval);
-HistoryUtilities = {};
+// and all callbacks take the form function(error,return);
+
+/**
+ * HistoryUtilities function
+ *
+ * Connects to the database and sets ACCESS_TOKEN and GROUP_ID
+ *
+ * ACCESS_TOKEN		- String, personal access token for GroupMe API
+ * GROUP_ID 		- String, ID for the group where members are to be added to
+ * DATABASE_URL 	- String, URL of the database used to store message history
+ */
+var HistoryUtilities = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL){
+	this.history = new History(ACCESS_TOKEN, GROUP_ID, DATABASE_URL);
+};
 
 
 /************************************************************************
  * Exported Utility Functions
  ***********************************************************************/
+
 
 /**
  * compileMessages function
@@ -329,30 +338,91 @@ HistoryUtilities = {};
  * Utilizes the MessageCompiler.js module to store the complete message history of a GroupMe
  * group into a mongoDB
  *
- * ACCESS_TOKEN		- String, personal access token for GroupMe API
- * GROUP_ID 		- String, ID for the group where members are to be added to
- * DATABASE_URL 	- String, URL of the database used to store message history
  * callback 		- callback, returns any errors or responses from the request
  */
-HistoryUtilities.compileMessages = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL, callback) {
-	var memberships = new History(ACCESS_TOKEN, GROUP_ID, DATABASE_URL);
-	memberships.compileMessages(function(error, response){
+HistoryUtilities.prototype.compileMessages = function(callback) {
+	this.history.compileMessages(function(error, response){
 		callback(error, response);
 	});
 }
 
-HistoryUtilities.insert = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL, table, memberList, afterDate, beforeDate, isCount, insert, update, callback) {
-	var memberships = new History(ACCESS_TOKEN, GROUP_ID, DATABASE_URL);
-	memberships.callDB(table, memberList, afterDate, beforeDate, isCount, insert, update, function(error, response){
-		callback(error, response);
-	});
+
+/**
+ * postedWithin function
+ *
+ * Retrieves messages posted within a certain time
+ *
+ * memberList		- Array, containg IDs of members to be removed to the group
+ * time				- Object, representing a time
+ *						{second: 	int,
+ *						 minute: 	int,
+ *						 hour: 		int,
+ *						 day: 		int,
+ *						 week: 		int,
+ *						 month: 	int,
+ *						 year: 		int}
+ * returnCount 		- Boolean, if true returns the count of objects queried
+ * callback 		- callback, returns all errors and responses of the API calls
+ */
+HistoryUtilities.prototype.postedWithin = function(memberList, time, returnCount, callback){
+	// Collect Current Time and Adjust
+	var currentTime = new Date().getTime() / 1000;
+	var afterDate = currentTime - toSeconds(time);
+	
+	// Construct Query
+	var query = this.history.messages().from(memberList).after(afterDate);
+	if(returnCount){
+		query.count(function(error, response){
+			callback(error, response);
+		});
+	} else {
+		query.find(function(error, response){
+			callback(error, response);
+		});
+	}
+
 }
 
-HistoryUtilities.find = function(ACCESS_TOKEN, GROUP_ID, DATABASE_URL, callback) {
-	var memberships = new History(ACCESS_TOKEN, GROUP_ID, DATABASE_URL);
-	memberships.messages().from([{user_id : '7232613'}]).before(1385486016).find(function(error, response){
-		callback(error, response);
-	});
+
+/**
+ * postedBetween function
+ *
+ * Retrieved messages posted between two dates
+ *
+ * memberList		- Array, containg IDs of members to be removed to the group
+ * fromDate 		- Object, representing a time
+ *						{second: 	int,
+ *						 minute: 	int,
+ *						 hour: 		int,
+ *						 day: 		int,
+ *						 week: 		int,
+ *						 month: 	int,
+ *						 year: 		int}
+ * toDate 			- Object, representing a time
+ * returnCount 		- Boolean, if true returns the count of objects queried
+ * callback 		- callback, returns all errors and responses of the API calls
+ */
+HistoryUtilities.prototype.postedBetween = function(memberList, fromDate, toDate, returnCount, callback){
+	// Set fromData and toDate
+	fromDate.year -= 1970;
+	fromDate.month -= 1;
+	toDate.year -= 1970;
+	toDate.month -= 1;
+	var afterDate = toSeconds(fromDate);
+	var beforeDate = toSeconds(toDate);
+	console.log(afterDate, beforeDate);
+
+	// Construct Query
+	var query = this.history.messages().from(memberList).after(afterDate).before(beforeDate);
+	if(returnCount){
+		query.count(function(error, response){
+			callback(error, response);
+		});
+	} else {
+		query.find(function(error, response){
+			callback(error, response);
+		});
+	}
 }
 
 
