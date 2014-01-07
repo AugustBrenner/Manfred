@@ -20,8 +20,10 @@ var GroupMe             = require('groupme');
 var API                 = require('groupme').Stateless;
 var Schedule            = require('node-schedule');
 var Admin               = require('./index');
-var Membership          = Admin.MembershipUtilities;
 var Processor           = require('./MessageProcessor');
+var StaleUsers          = Admin.StaleUsers;
+var Membership          = Admin.MembershipUtilities;
+var History             = Admin.HistoryUtilities;
 
 
 /************************************************************************
@@ -34,7 +36,7 @@ if (process.argv.length < 3) {
     console.log("Usage: node Manfred.js ACCESS_TOKEN [user_id] [botname]");
     console.log("  Passing only ACCESS_TOKEN - returns user and group info");
     console.log("  Passing ACCESS_TOKEN, USER_ID, GROUP_ID, BOT_NAME - creates a new bot");
-    console.log("  Passing ACCESS_TOKEN, USER_ID, BOT_ID - starts up the bot");
+    console.log("  Passing ACCESS_TOKEN, USER_ID, BOT_ID, FROM_GROUP, TO_GROUP, DATABASE_URL - starts up the bot");
     process.exit(1);
 } 
 var ACCESS_TOKEN = process.argv[2];
@@ -86,6 +88,7 @@ if (process.argv.length == 3) {
     var BOT_ID = process.argv[4];
     var FROM_GROUP = process.argv[5];
     var TO_GROUP = process.argv[6];
+    var DATABASE_URL = process.argv[7];
 
 
 
@@ -111,21 +114,9 @@ if (process.argv.length == 3) {
     
 
     // This waits for the IncomingStream to complete its handshake and start listening.
-    // We then get the group_id for the bot.
     incoming.on('connected', function() {
         console.log("[IncomingStream 'connected']");
-
-        API.Bots.index(ACCESS_TOKEN, function(error,response) {
-            if (!error) {
-                for (var i = 0; i < response.length; i++) {
-                    if (response[i].bot_id == BOT_ID) {
-                        group_id = response[i].group_id;
-                    }
-                }
-                console.log("[API.Bots.index return] Firing up bot!", BOT_ID);
-            }
-        });
-
+        console.log("[API.Bots.index return] Firing up bot!", BOT_ID);
     });
 
     // This waits for messages coming in from the IncomingStream
@@ -137,7 +128,7 @@ if (process.argv.length == 3) {
             console.log("[IncomingStream 'message'] Message Received\n" + message.data.subject.text);
 
             // Process message.
-            Processor.process(ACCESS_TOKEN, BOT_ID, group_id, message);
+            Processor.process(ACCESS_TOKEN, BOT_ID, FROM_GROUP, TO_GROUP, message);
         }
 
     });
@@ -149,7 +140,7 @@ if (process.argv.length == 3) {
             retryCount = retryCount - 1;
             incoming.connect();    
         }
-    })
+    });
 
     // This listens for an error to occur on the Websockets IncomingStream.
     incoming.on('error', function() {
@@ -159,7 +150,7 @@ if (process.argv.length == 3) {
             retryCount = retryCount - 1;
             incoming.connect();    
         }
-    })
+    });
 
 
     // This starts the connection process for the IncomingStream
@@ -180,16 +171,77 @@ if (process.argv.length == 3) {
         rule.hour = 17;
         rule.minute = 0;
 
+    // Set Up Criteria for Stale Users
+    var staleCriteria = {};
+    staleCriteria.lifetime_posts = '10000';
+    staleCriteria.posts_within = {};
+    staleCriteria.posts_within.time = {};
+    staleCriteria.posts_within.time.month = '3';
+    staleCriteria.posts_within.posts = '1';
 
+    // Instantiate Stale User Class Objecs
+    var staleFrom = new StaleUsers(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL, staleCriteria);
+    var staleTo = new StaleUsers(ACCESS_TOKEN, TO_GROUP, DATABASE_URL, staleCriteria);
+    var historyFrom = new History(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
+    var historyTo = new History(ACCESS_TOKEN, TO_GROUP, DATABASE_URL);
+
+    // Schedule Stale Users for Removal
     var j = Schedule.scheduleJob(rule, function(){
-        Membership.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
-            if(!error && response){
-                console.log("\033[94mRoster Transferred\033[0m");
-                console.log(response);
+
+
+    });
+
+    // Refresh Stream
+    setInterval(function() {
+        var removeStaleUsers = function(group){
+            // Remove Stale Users Who Have Been Warned
+            group.removeStaleUsers(function(error, response){
+                console.log(error);
+                getStaleUsers(group);
+            });  
+        }
+
+        var getStaleUsers = function(group){
+            // Gather Stale Users
+            group.getStaleUsers(true, false, function(error, response){
+                console.log(error);
+                returnStaleUsers(group);
+            });
+        }
+
+        var returnStaleUsers = function(group){
+            // show Stale Users
+            group.returnStaleUsers(function(error, response){
+                console.log(error);
+                messageStaleUsers(group);
+            });
+        }
+
+        var messageStaleUsers = function(group){
+            // Generate Message
+            var message = "You have been inactive on BAS All Stars for some time. To remain in the group, please contribute to the discussion.";
+            
+            group.messageStaleUsers(message, true, function(error, response){
+                console.log(error);
+            });
+        } 
+
+
+        historyFrom.compileMessages(function(error, response){
+            if(!error || error.length == 0 && response){
+                removeStaleUsers(staleFrom);
             } else {
-                console.log("\033[1;31mRoster Transfer Failed\033[0m");
                 console.log(error);
             }
         });
-    });
+
+        historyTo.compileMessages(function(error, response){
+            if(!error || error.length == 0 && response){
+                removeStaleUsers(staleTo);
+            } else {
+                console.log(error);
+            }
+        });
+
+    }, 10 * 1000);
 }
