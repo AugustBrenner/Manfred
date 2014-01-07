@@ -19,7 +19,8 @@ https://github.com/njoubert
 var GroupMe             = require('groupme');
 var API                 = require('groupme').Stateless;
 var Schedule            = require('node-schedule');
-var Membership          = require('./MembershipUtilities');
+var Admin               = require('./index');
+var Membership          = Admin.MembershipUtilities;
 var Processor           = require('./MessageProcessor');
 
 
