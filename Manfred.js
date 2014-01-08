@@ -171,16 +171,17 @@ if (process.argv.length == 3) {
     // Schedule Roster Transfer
     var rule = new Schedule.RecurrenceRule();
         //rule.dayOfWeek = 2;
-        rule.hour = 21;
+        rule.hour = 8;
+        rule.minute = 30;
         //rule.minute = 28;
 
     // Set Up Criteria for Stale Users
     var STALE_CRITERIA = {};
-    STALE_CRITERIA.lifetime_posts = 1000;
-    STALE_CRITERIA.posts_within = {};
-    STALE_CRITERIA.posts_within.time = {};
-    STALE_CRITERIA.posts_within.time.month = 3;
-    STALE_CRITERIA.posts_within.posts = 1;
+    STALE_CRITERIA.lifetime_posts = 0;
+    //STALE_CRITERIA.posts_within = {};
+    //STALE_CRITERIA.posts_within.time = {};
+    //STALE_CRITERIA.posts_within.time.month = 3;
+    //STALE_CRITERIA.posts_within.posts = 1;
 
     // Instantiate Stale User Class Objecs
     var staleUsers = new StaleUsers(ACCESS_TOKEN, DATABASE_URL, STALE_CRITERIA, FROM_GROUP, TO_GROUP);

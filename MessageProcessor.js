@@ -9,13 +9,33 @@ Incomming.process       = {};
 
 Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_GROUP, message){
 
+
+    // User Defaults
+    var DEFAULT_USER_AVATAR = '';
+    var DEFAULT_USER_NAME = "BAS All Stars";
+
     // Listen for System Messages
     if(message.data.subject.system){
+        
+
         // Listen for Users Being Added to the Group
         if (message.data 
             && message.data.subject
             && message.data.subject.text
-            && message.data.subject.text.indexOf('added') >= 0) { 
+            && message.data.subject.text.indexOf('added') >= 0
+            && message.data.subject.text.indexOf(DEFAULT_USER_NAME) == -1 ){ 
+            
+            Membership.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
+                if(!error || error.length == 0 && response){
+                    console.log("\033[94mRoster Addition Successful\033[0m");
+                    console.log(response);
+                } else {
+                    console.log("\033[1;31mRoster Addition Failed\033[0m");
+                    console.log(error);
+                }
+            });            
+
+            /*
             // Bind Outer Join Memberships
             Membership.bindMembers(ACCESS_TOKEN, FROM_GROUP, true, TO_GROUP, true, function(error, response){
                 if(!error || error.length == 0 && response){
@@ -26,13 +46,16 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
                     console.log(error);
                 }
             });
+            */
         } 
 
-        // Listen for Users Being Added to the Group
+        /*
+        // Listen for Users Being Removed from the Group
         if (message.data 
             && message.data.subject
             && message.data.subject.text
-            && message.data.subject.text.indexOf('removed') >= 0) { 
+            && message.data.subject.text.indexOf('removed') >= 0
+            && message.data.subject.text.indexOf(DEFAULT_USER_NAME) == -1){ 
             // Bind Outer Join Memberships
             Membership.bindMembers(ACCESS_TOKEN, FROM_GROUP, false, TO_GROUP, false, function(error, response){
                 if(!error || error.length == 0 && response){
@@ -44,6 +67,7 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
                 }
             });
         } 
+        */
 
     } 
     // Listen to User Messages
