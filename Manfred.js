@@ -125,10 +125,13 @@ if (process.argv.length == 3) {
         if(typeof message.data !== "undefined" && message != null){
             
             // Log Message.
-            console.log("[IncomingStream 'message'] Message Received\n" + message.data.subject.text);
+            var TEXT = "message undefines";
+            if(message.data.subject.text)
+                TEXT = message.data.subject.text;
+            console.log("[IncomingStream 'message'] Message Received\n" + TEXT);
 
             // Process message.
-            Processor.process(ACCESS_TOKEN, BOT_ID, FROM_GROUP, TO_GROUP, message);
+            Processor.process(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_GROUP, message);
         }
 
     });
@@ -167,81 +170,98 @@ if (process.argv.length == 3) {
 
     // Schedule Roster Transfer
     var rule = new Schedule.RecurrenceRule();
-        rule.dayOfWeek = 5;
-        rule.hour = 17;
-        rule.minute = 0;
+        //rule.dayOfWeek = 2;
+        rule.hour = 21;
+        //rule.minute = 28;
 
     // Set Up Criteria for Stale Users
-    var staleCriteria = {};
-    staleCriteria.lifetime_posts = '10000';
-    staleCriteria.posts_within = {};
-    staleCriteria.posts_within.time = {};
-    staleCriteria.posts_within.time.month = '3';
-    staleCriteria.posts_within.posts = '1';
+    var STALE_CRITERIA = {};
+    STALE_CRITERIA.lifetime_posts = 1000;
+    STALE_CRITERIA.posts_within = {};
+    STALE_CRITERIA.posts_within.time = {};
+    STALE_CRITERIA.posts_within.time.month = 3;
+    STALE_CRITERIA.posts_within.posts = 1;
 
     // Instantiate Stale User Class Objecs
-    var staleFrom = new StaleUsers(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL, staleCriteria);
-    var staleTo = new StaleUsers(ACCESS_TOKEN, TO_GROUP, DATABASE_URL, staleCriteria);
-    var historyFrom = new History(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
-    var historyTo = new History(ACCESS_TOKEN, TO_GROUP, DATABASE_URL);
+    var staleUsers = new StaleUsers(ACCESS_TOKEN, DATABASE_URL, STALE_CRITERIA, FROM_GROUP, TO_GROUP);
+    var fromGroupHistory = new History(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
+    var toGroupHistory = new History(ACCESS_TOKEN, TO_GROUP, DATABASE_URL);
 
     // Schedule Stale Users for Removal
     var j = Schedule.scheduleJob(rule, function(){
+        var errors = [];
+        var responses = [];
 
-
-    });
-
-    // Refresh Stream
-    setInterval(function() {
-        var removeStaleUsers = function(group){
+        // Remove All Users With a Flag
+        /*
+        var removeStaleUsers = function(){
             // Remove Stale Users Who Have Been Warned
-            group.removeStaleUsers(function(error, response){
-                console.log(error);
-                getStaleUsers(group);
+            staleUsers.removeStaleUsers(function(error, response){
+                errors.push(error);
+                responses.push(response);
+                getStaleUsers();
             });  
         }
+        */
 
-        var getStaleUsers = function(group){
+        // Retrieve Stale Users and Store Them For Processing
+        var getStaleUsers = function(){
             // Gather Stale Users
-            group.getStaleUsers(true, false, function(error, response){
-                console.log(error);
-                returnStaleUsers(group);
+            staleUsers.getStaleUsers(true, false, function(error, response){
+                errors.push(error);
+                responses.push(response);
+                returnStaleUsersCount();
             });
         }
 
-        var returnStaleUsers = function(group){
+        // Display the Count of Stale Users
+        var returnStaleUsersCount = function(){
             // show Stale Users
-            group.returnStaleUsers(function(error, response){
-                console.log(error);
-                messageStaleUsers(group);
+            staleUsers.returnStaleUsers(function(error, response){
+                errors.push(error);
+                responses.push(response);
+                console.log(response.length);
             });
         }
 
-        var messageStaleUsers = function(group){
+        // Message and Flag All Stale Users
+        /*
+        var messageStaleUsers = function(){
             // Generate Message
-            var message = "You have been inactive on BAS All Stars for some time. To remain in the group, please contribute to the discussion.";
+            var message = "You have been inactive on BAS for some time. To remain in the group, please post a message to the duscussion :)";
             
-            group.messageStaleUsers(message, true, function(error, response){
-                console.log(error);
+            staleUsers.messageStaleUsers(message, true, function(error, response){
+                errors.push(error);
+                responses.push(response);
+                console.log(errors, responses);
             });
         } 
+        */
 
+        // Handle Callbacks
+        var callbackCount = 2;
 
-        historyFrom.compileMessages(function(error, response){
+        fromGroupHistory.compileMessages(function(error, response){
+            callbackCount--;
             if(!error || error.length == 0 && response){
-                removeStaleUsers(staleFrom);
+                responses.push(response);
+                if(callbackCount == 0)
+                    getStaleUsers(staleUsers);
             } else {
-                console.log(error);
+                errors.push(error);
             }
         });
 
-        historyTo.compileMessages(function(error, response){
+        toGroupHistory.compileMessages(function(error, response){
+            callbackCount--;
             if(!error || error.length == 0 && response){
-                removeStaleUsers(staleTo);
+                responses.push(response);
+                if(callbackCount == 0)
+                    getStaleUsers(staleUsers);
             } else {
-                console.log(error);
+                errors.push(error);
             }
         });
 
-    }, 10 * 1000);
+    });
 }
