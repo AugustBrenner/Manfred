@@ -19,14 +19,32 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
             // Bind Outer Join Memberships
             Membership.bindMembers(ACCESS_TOKEN, FROM_GROUP, true, TO_GROUP, true, function(error, response){
                 if(!error || error.length == 0 && response){
-                    console.log("\033[94mRoster Transferred\033[0m");
+                    console.log("\033[94mRoster Addition Successful\033[0m");
                     console.log(response);
                 } else {
-                    console.log("\033[1;31mRoster Transfer Failed\033[0m");
+                    console.log("\033[1;31mRoster Addition Failed\033[0m");
                     console.log(error);
                 }
             });
         } 
+
+        // Listen for Users Being Added to the Group
+        if (message.data 
+            && message.data.subject
+            && message.data.subject.text
+            && message.data.subject.text.indexOf('removed') >= 0) { 
+            // Bind Outer Join Memberships
+            Membership.bindMembers(ACCESS_TOKEN, FROM_GROUP, false, TO_GROUP, false, function(error, response){
+                if(!error || error.length == 0 && response){
+                    console.log("\033[94mRoster Removal Successful\033[0m");
+                    console.log(response);
+                } else {
+                    console.log("\033[1;31mRoster Removal Failed\033[0m");
+                    console.log(error);
+                }
+            });
+        } 
+
     } 
     // Listen to User Messages
     else {
