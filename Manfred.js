@@ -170,10 +170,15 @@ if (process.argv.length == 3) {
 
     // Schedule Roster Transfer
     var rule = new Schedule.RecurrenceRule();
+        
         //rule.dayOfWeek = 2;
         //rule.hour = 8;
-        rule.minute = 36;
+        //rule.minute = 36;
         //rule.minute = 28;
+
+    // Schedule Specific date
+    var date = new Date(2014, 0, 9, 3, 0, 0);
+    console.log(date);
 
     // Set Up Criteria for Stale Users
     var STALE_CRITERIA = {};
@@ -189,7 +194,7 @@ if (process.argv.length == 3) {
     var toGroupHistory = new History(ACCESS_TOKEN, TO_GROUP, DATABASE_URL);
 
     // Schedule Stale Users for Removal
-   // var j = Schedule.scheduleJob(rule, function(){
+    var j = Schedule.scheduleJob(date, function(){
         var errors = [];
         var responses = [];
 
@@ -261,5 +266,5 @@ if (process.argv.length == 3) {
             }
         });
 
-  //  });
+    });
 }
