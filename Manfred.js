@@ -177,16 +177,16 @@ if (process.argv.length == 3) {
         //rule.minute = 28;
 
     // Schedule Specific date
-    var date = new Date(2014, 0, 9, 3, 0, 0);
+    var date = new Date(2014, 0, 16, 11, 0, 0);
     console.log(date);
 
     // Set Up Criteria for Stale Users
     var STALE_CRITERIA = {};
-    STALE_CRITERIA.lifetime_posts = 1;
-    //STALE_CRITERIA.posts_within = {};
-    //STALE_CRITERIA.posts_within.time = {};
-    //STALE_CRITERIA.posts_within.time.month = 3;
-    //STALE_CRITERIA.posts_within.posts = 1;
+    STALE_CRITERIA.lifetime_posts = 1000;
+    STALE_CRITERIA.posts_within = {};
+    STALE_CRITERIA.posts_within.time = {};
+    STALE_CRITERIA.posts_within.time.month = 6;
+    STALE_CRITERIA.posts_within.posts = 1;
 
     // Instantiate Stale User Class Objecs
     var staleUsers = new StaleUsers(ACCESS_TOKEN, DATABASE_URL, STALE_CRITERIA, FROM_GROUP, TO_GROUP);
@@ -215,6 +215,7 @@ if (process.argv.length == 3) {
                 console.log(errors, responses);
             });  
         }
+        
 
         // Retrieve Stale Users and Store Them For Processing
         var getStaleUsers = function(){
@@ -222,7 +223,6 @@ if (process.argv.length == 3) {
             staleUsers.getStaleUsers(true, false, function(error, response){
                 errors.push(error);
                 responses.push(response);
-                console.log(errors, responses);
                 removeStaleUsers();
             });
         }
@@ -266,5 +266,5 @@ if (process.argv.length == 3) {
             }
         });
 
-    });
+   });
 }
