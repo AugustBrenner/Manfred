@@ -171,13 +171,13 @@ if (process.argv.length == 3) {
     // Schedule Roster Transfer
     var rule = new Schedule.RecurrenceRule();
         //rule.dayOfWeek = 2;
-        rule.hour = 8;
-        rule.minute = 30;
+        //rule.hour = 8;
+        rule.minute = 36;
         //rule.minute = 28;
 
     // Set Up Criteria for Stale Users
     var STALE_CRITERIA = {};
-    STALE_CRITERIA.lifetime_posts = 0;
+    STALE_CRITERIA.lifetime_posts = 1;
     //STALE_CRITERIA.posts_within = {};
     //STALE_CRITERIA.posts_within.time = {};
     //STALE_CRITERIA.posts_within.time.month = 3;
@@ -189,21 +189,27 @@ if (process.argv.length == 3) {
     var toGroupHistory = new History(ACCESS_TOKEN, TO_GROUP, DATABASE_URL);
 
     // Schedule Stale Users for Removal
-    var j = Schedule.scheduleJob(rule, function(){
+   // var j = Schedule.scheduleJob(rule, function(){
         var errors = [];
         var responses = [];
 
         // Remove All Users With a Flag
-        /*
+        
         var removeStaleUsers = function(){
             // Remove Stale Users Who Have Been Warned
-            staleUsers.removeStaleUsers(function(error, response){
+            staleUsers.removeStaleUsers(true, function(error, response){
+                MembershipUtilities.bindMembers(ACCESS_TOKEN, FROM_GROUP, true, TO_GROUP, false, function(error, response){
+                    if(!error || error.length == 0 && response){
+                        console.log("\033[94mRoster Subtraction Successful\033[0m");
+                    } else {
+                        console.log("\033[1;31mRoster Subtraction Failed\033[0m");
+                    }
+                });
                 errors.push(error);
                 responses.push(response);
-                getStaleUsers();
+                console.log(errors, responses);
             });  
         }
-        */
 
         // Retrieve Stale Users and Store Them For Processing
         var getStaleUsers = function(){
@@ -211,17 +217,8 @@ if (process.argv.length == 3) {
             staleUsers.getStaleUsers(true, false, function(error, response){
                 errors.push(error);
                 responses.push(response);
-                returnStaleUsersCount();
-            });
-        }
-
-        // Display the Count of Stale Users
-        var returnStaleUsersCount = function(){
-            // show Stale Users
-            staleUsers.returnStaleUsers(function(error, response){
-                errors.push(error);
-                responses.push(response);
-                console.log(response.length);
+                console.log(errors, responses);
+                removeStaleUsers();
             });
         }
 
@@ -264,5 +261,5 @@ if (process.argv.length == 3) {
             }
         });
 
-    });
+  //  });
 }
