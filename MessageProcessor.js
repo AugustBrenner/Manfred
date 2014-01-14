@@ -23,7 +23,8 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
             && message.data.subject
             && message.data.subject.text
             && message.data.subject.text.indexOf('added') >= 0
-            && message.data.subject.text.indexOf(DEFAULT_USER_NAME) == -1 ){ 
+            && message.data.subject.text.indexOf(DEFAULT_USER_NAME) == -1 
+            && message.data.subject.group_id == FROM_GROUP){ 
             
             Membership.transferMembers(ACCESS_TOKEN, FROM_GROUP, TO_GROUP, function(error, response){
                 if(!error || error.length == 0 && response){
@@ -97,7 +98,7 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
         var BOT_LISTENS_FOR = "|";
         var NAME_MODIFIER = "|";
         var transferMessage = function(text){
-            if(text.indexOf(BOT_LISTENS_FOR) >= 0 && BOT_ID && message.data.subject.group_id != TO_GROUP) {
+            if(text.indexOf(BOT_LISTENS_FOR) >= 0 && BOT_ID && message.data.subject.group_id == FROM_GROUP) {
                 var params = {
                     name: NAME_MODIFIER + message.data.subject.name, 
                     avatar_url: message.data.subject.avatar_url, 
@@ -148,7 +149,7 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
                 dateParam = {hour: 1};
                 var messageParam = " in the Last Hour";
             }
-            if(text.indexOf(COUNT) >= 0 && BOT_ID && message.data.subject.group_id != TO_GROUP) {
+            if(text.indexOf(COUNT) >= 0 && BOT_ID && message.data.subject.group_id == FROM_GROUP) {
                 if(text.indexOf())
                 
                 var user = message.data.subject;
