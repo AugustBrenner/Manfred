@@ -193,6 +193,7 @@ if (process.argv.length == 3) {
     var fromGroupHistory = new History(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
     var toGroupHistory = new History(ACCESS_TOKEN, TO_GROUP, DATABASE_URL);
 
+    /*
     // Schedule Stale Users for Removal
     var j = Schedule.scheduleJob(date, function(){
         var errors = [];
@@ -240,7 +241,7 @@ if (process.argv.length == 3) {
             });
         } 
         */
-
+/*
         // Handle Callbacks
         var callbackCount = 2;
 
@@ -266,5 +267,5 @@ if (process.argv.length == 3) {
             }
         });
 
-   });
+   }); */
 }
