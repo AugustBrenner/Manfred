@@ -9,6 +9,7 @@
     "groupme": "*",
     "mongodb": "*",
     "mongojs": "*",
-    "node-schedule": "*"
+    "node-schedule": "*",
+    "underscore": "*"
   }
 }

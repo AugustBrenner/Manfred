@@ -3,6 +3,7 @@ var API                 = require('groupme').Stateless;
 var Admin               = require('./index');
 var Membership          = Admin.MembershipUtilities;
 var History             = Admin.HistoryUtilities;
+var Game                = Admin.GameUtilities;
 
 Incomming               = {};
 Incomming.process       = {};
@@ -75,9 +76,10 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
     else {
 
         // Bot Defaults
-        var DEFAULT_BOT_AVATAR = 'https://i.groupme.com/780x780.jpeg.0134c9b05a3c0131200322000a2d0ef6';
-        var DEFAULT_BOT_NAME = "Manfred";
-        var history = new History(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
+        var DEFAULT_BOT_AVATAR  = 'https://i.groupme.com/780x780.jpeg.0134c9b05a3c0131200322000a2d0ef6';
+        var DEFAULT_BOT_NAME    = "Manfred";
+        var history             = new History(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
+        var game                = new Game(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
         
         /************************************************************************
          * Message Processing Functions
@@ -95,9 +97,11 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
         }
 
         
+        var transferMessage = function(text){
+
         var BOT_LISTENS_FOR = "|";
         var NAME_MODIFIER = "|";
-        var transferMessage = function(text){
+
             if(text.indexOf(BOT_LISTENS_FOR) >= 0 && BOT_ID && message.data.subject.group_id == FROM_GROUP) {
                 var params = {
                     name: NAME_MODIFIER + message.data.subject.name, 
@@ -122,13 +126,15 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
         }
 
 
-        var COUNT = "#count";
-        var YEAR  = "year"
-        var MONTH = "month";
-        var WEEK  = "week";
-        var DAY   = "day";
-        var HOUR  = "hour";
+
         var countMessages = function(text){
+
+            var COUNT = "#count";
+            var YEAR  = "year"
+            var MONTH = "month";
+            var WEEK  = "week";
+            var DAY   = "day";
+            var HOUR  = "hour";
             
             var dateParam = {year: 40};
             var messageParam = "";
@@ -150,7 +156,6 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
                 var messageParam = " in the Last Hour";
             }
             if(text.indexOf(COUNT) >= 0 && BOT_ID && message.data.subject.group_id == FROM_GROUP) {
-                if(text.indexOf())
                 
                 var user = message.data.subject;
                 history.compileMessages(function(error, response){
@@ -183,6 +188,57 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
                 });
             }
         }
+
+        var postRandom = function(text){
+            var BOT_LISTENS_FOR_1 = "what would ";
+            var BOT_LISTENS_FOR_2 = " say";
+            var NAME_MODIFIER = "|";
+            var parsedCorrectly = false;
+            var username;
+
+            var index1 = text.indexOf(BOT_LISTENS_FOR_1);
+            var index2 = text.indexOf(BOT_LISTENS_FOR_2);
+            if(index1 == 0 && index2 > 0){
+                username = text.substring(BOT_LISTENS_FOR_1.length, index2);
+                parsedCorrectly = true;
+            }
+
+            if(parsedCorrectly && BOT_ID && message.data.subject.group_id == FROM_GROUP) {
+                
+                game.returnRandomMessageBy(username, function(error, response){
+                    if(!error && response){
+                        var randomMessage = response;
+                        var params = {
+                            name: NAME_MODIFIER + randomMessage.name, 
+                            avatar_url: randomMessage.avatar_url, 
+                            group_id: FROM_GROUP
+                        };
+                        
+                        var image = {};
+                        if(randomMessage.attachments && randomMessage.attachments.length > 0){
+                            image.picture_url = randomMessage.attachments[0].url;
+                        }
+                        console.log(image);
+                        updateBot(params, function(error, response) {
+                        
+                            API.Bots.post(
+                                ACCESS_TOKEN, // Identify the access token
+                                BOT_ID, // Identify the bot that is sending the message
+                                randomMessage.text, // Construct the message
+                                image, // No pictures related to this post
+                                function(error,response) {
+                                    if (error) {
+                                        console.log("[API.Bots.post] Reply Message Error!");
+                                    } else {
+                                        console.log("[API.Bots.post] Reply Message Sent!");
+                                    }
+                                }
+                            );      
+                        });
+                    }
+                });
+            }
+        }
         
         // Process the Message Text
         if (message.data && message.data.subject && message.data.subject.text){
@@ -190,6 +246,7 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
 
             transferMessage(TEXT);
             countMessages(TEXT);
+            postRandom(TEXT);
         }
     }
 }
