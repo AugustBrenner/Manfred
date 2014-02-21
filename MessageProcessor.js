@@ -196,9 +196,9 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
             var parsedCorrectly = false;
             var username;
 
-            var index1 = text.indexOf(BOT_LISTENS_FOR_1);
-            var index2 = text.indexOf(BOT_LISTENS_FOR_2);
-            if(index1 == 0 && index2 > 0){
+            var index1 = text.toLowerCase().indexOf(BOT_LISTENS_FOR_1);
+            var index2 = text.toLowerCase().indexOf(BOT_LISTENS_FOR_2);
+            if(index1 >= 0 && index2 > index1){
                 username = text.substring(BOT_LISTENS_FOR_1.length, index2);
                 parsedCorrectly = true;
             }
