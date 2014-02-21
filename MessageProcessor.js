@@ -193,6 +193,7 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
             var BOT_LISTENS_FOR_1 = "what would ";
             var BOT_LISTENS_FOR_2 = " say";
             var NAME_MODIFIER = "|";
+            var DEFAULT_AVATAR = 'https://i.groupme.com/60x60.jpeg.a240da307d790131da4222000a09a5b7.avatar';
             var parsedCorrectly = false;
             var username;
 
@@ -208,6 +209,11 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
                 game.returnRandomMessageBy(username, function(error, response){
                     if(!error && response){
                         var randomMessage = response;
+                        
+                        if(randomMessage.avatar_url == null){
+                            randomMessage.avatar_url = DEFAULT_AVATAR;
+                        }
+
                         var params = {
                             name: NAME_MODIFIER + randomMessage.name, 
                             avatar_url: randomMessage.avatar_url, 
