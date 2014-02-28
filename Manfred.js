@@ -196,6 +196,16 @@ if (process.argv.length == 3) {
     var fromGroupHistory = new History(ACCESS_TOKEN, FROM_GROUP, DATABASE_URL);
     var toGroupHistory = new History(ACCESS_TOKEN, TO_GROUP, DATABASE_URL);
 
+
+    // create and Environment variable to count usage if non currently exist
+    process.env.WWXSCounter = 0;
+    
+    setInterval(function(){
+        if(process.env.WWXSCounter > 0){
+            process.env.WWXSCounter--;
+        }
+    }, 3600000);
+
  /*   
     // Schedule Stale Users for Removal
     var j = Schedule.scheduleJob(date, function(){

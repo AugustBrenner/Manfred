@@ -206,43 +206,68 @@ Incomming.process = function(ACCESS_TOKEN, DATABASE_URL, BOT_ID, FROM_GROUP, TO_
 
             if(parsedCorrectly && BOT_ID && message.data.subject.group_id == FROM_GROUP) {
                 
-                game.returnRandomMessageBy(username, function(error, response){
-                    if(!error && response){
-                        var randomMessage = response;
-                        
-                        if(randomMessage.avatar_url == null){
-                            randomMessage.avatar_url = DEFAULT_AVATAR;
-                        }
+                if(process.env.WWXSCounter >= 5){
+                    var params = {
+                        name: DEFAULT_BOT_NAME, 
+                        avatar_url: DEFAULT_BOT_AVATAR,
+                        group_id: FROM_GROUP
+                    };
 
-                        var params = {
-                            name: NAME_MODIFIER + randomMessage.name, 
-                            avatar_url: randomMessage.avatar_url, 
-                            group_id: FROM_GROUP
-                        };
-                        
-                        var image = {};
-                        if(randomMessage.attachments && randomMessage.attachments.length > 0){
-                            image.picture_url = randomMessage.attachments[0].url;
-                        }
-                        console.log(image);
-                        updateBot(params, function(error, response) {
-                        
-                            API.Bots.post(
-                                ACCESS_TOKEN, // Identify the access token
-                                BOT_ID, // Identify the bot that is sending the message
-                                randomMessage.text, // Construct the message
-                                image, // No pictures related to this post
-                                function(error,response) {
-                                    if (error) {
-                                        console.log("[API.Bots.post] Reply Message Error!");
-                                    } else {
-                                        console.log("[API.Bots.post] Reply Message Sent!");
-                                    }
+                    updateBot(params, function(error, response) {
+                        API.Bots.post(
+                            ACCESS_TOKEN, // Identify the access token
+                            BOT_ID, // Identify the bot that is sending the message
+                            "Error 420: You guys need to chill the fuck out.", // Construct the message
+                            {}, // No pictures related to this post
+                            function(error,response) {
+                                if (error) {
+                                    console.log("[API.Bots.post] Reply Message Error!");
+                                } else {
+                                    console.log("[API.Bots.post] Reply Message Sent!");
                                 }
-                            );      
-                        });
-                    }
-                });
+                            }
+                        );      
+                    }); 
+                } else{
+                    process.env.WWXSCounter++;
+                    game.returnRandomMessageBy(username, function(error, response){
+                        if(!error && response){
+                            var randomMessage = response;
+                            
+                            if(randomMessage.avatar_url == null){
+                                randomMessage.avatar_url = DEFAULT_AVATAR;
+                            }
+
+                            var params = {
+                                name: NAME_MODIFIER + randomMessage.name, 
+                                avatar_url: randomMessage.avatar_url, 
+                                group_id: FROM_GROUP
+                            };
+                            
+                            var image = {};
+                            if(randomMessage.attachments && randomMessage.attachments.length > 0){
+                                image.picture_url = randomMessage.attachments[0].url;
+                            }
+                            console.log(image);
+                            updateBot(params, function(error, response) {
+                            
+                                API.Bots.post(
+                                    ACCESS_TOKEN, // Identify the access token
+                                    BOT_ID, // Identify the bot that is sending the message
+                                    randomMessage.text, // Construct the message
+                                    image, // No pictures related to this post
+                                    function(error,response) {
+                                        if (error) {
+                                            console.log("[API.Bots.post] Reply Message Error!");
+                                        } else {
+                                            console.log("[API.Bots.post] Reply Message Sent!");
+                                        }
+                                    }
+                                );      
+                            });
+                        }
+                    });
+                }
             }
         }
         
